@@ -21,9 +21,18 @@ streamlit run app.py
 
 ## Herné mechaniky
 
-- **d20 skill check:** `hod_d20 + aktuálny_atribút + bonus ≥ DC → úspech`. Animovaný hod,
-  rozlíšenie Úspech / Tesný neúspech (−1 až −3, `result_near`) / Neúspech (−4+, druhá šanca DC +5).
-- **Hod 20:** ponúkne `+1` k danému atribútu (max 1× za deň na postavu).
+- **d20 skill check:** `hod_d20 + aktuálny_atribút + bonus ≥ DC → úspech`. Animovaný hod
+  (trase → spomalenie → finále). Pri každej možnosti je **rozpis bonusov** a *„potrebuješ hodiť X+"*.
+  Rozlíšenie Úspech / Tesný neúspech (−1 až −3, `result_near`) / Neúspech (−4+, druhá šanca DC +5).
+- **Hod 20:** ponúkne `+1` k danému atribútu (max 1× za deň na postavu). **Hod 1:** −10 % Výdrže navyše.
+- **Variabilný počet rozhodnutí:** bežné (decision1/2/3) + 🎁 nájdený predmet + 🛒 nákup (ak je trh)
+  + 👶 detské rozhodnutie (vždy posledné, nízke DC, vždy aspoň čiastočne pozitívne).
+- **🛒 Trhy (10 typov):** Dedinský, Lesný druidov, Alchymistický, Klanový (Taliansko), Prístavný,
+  Kováč, Tajomný obchodník, Putovná karavána, Hradný arzenál, Chrámový — nákup s platbou
+  **osobné / klanové / kombinácia**.
+- **🎁 Predmet:** rozhodnutie „komu ho dáte" — pridelí sa do inventára vybranej postavy.
+- **⚙️ GM mód:** diskrétny prepínač úplne dole v sidebari. Zapne **GM kalendár** s farbami dní
+  (🔴 Boss · 🟠 Mini-boss · 🟡 Silnejší nepriateľ) a skryté GM poznámky. Hráčom ostáva skryté.
 - **Míľniky:** Ťažší nepriateľ 1 · Mini-boss 2 · Hlavný boss 5 · Kapitola 3 — body sa rozdeľujú
   v kartách postáv (bez stropu).
 - **Výdrž = životy:** štart = atribút Výdrž; farebný progress bar (zelená/oranžová/červená).

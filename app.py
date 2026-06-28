@@ -18,6 +18,7 @@ from data import (
     ABILITIES, STARTING_EQUIPMENT, LEGENDARY_ITEMS, WEAPONS_SHOP, EXPENSES,
     DC_SCALE, MILESTONE_POINTS, MILESTONE_LABELS, REGEN_RULES, ZISK_OSOBNE_PODIEL,
     WORLD_INTRO, GROUP_SCHEDULE,
+    build_decisions, shop_for_day, gm_color_for_day, day_type_label,
 )
 
 st.set_page_config(page_title="Svetlo Úsvitu", page_icon="🗡️", layout="centered")
@@ -30,14 +31,19 @@ START_GOLD = 20         # štartovacie osobné zlato
 START_KLAN = 40         # štartovacia klanová pokladnica
 
 TYPE_BADGE = {
-    "fyzicke":   "💪 Fyzické",
-    "sociale":   "💬 Sociálne",
-    "prieskumne":"🔍 Prieskumné",
-    "takticke":  "♟️ Taktické",
-    "prirodne":  "🌿 Prírodné",
-    "tajomne":   "🔮 Tajomné",
-    "humorne":   "😄 Humorné",
+    "fyzicke":    "💪 Fyzické",
+    "sociale":    "💬 Sociálne",
+    "prieskumne": "🔍 Prieskumné",
+    "takticke":   "♟️ Taktické",
+    "prirodne":   "🌿 Prírodné",
+    "tajomne":    "🔮 Tajomné",
+    "humorne":    "😄 Humorné",
+    "detske":     "👶 Detské",
 }
+
+GM_DOT = {"red": "🔴", "orange": "🟠", "yellow": "🟡"}
+GM_DOT_LABEL = {"red": "Boss", "orange": "Mini-boss", "yellow": "Silnejší nepriateľ"}
+
 
 # =========================================================================
 #  CSS — tmavý high-fantasy motív, veľké tlačidlá pre mobil
@@ -49,14 +55,14 @@ def inject_css(accent):
       .su-accent {{ color:{accent}; }}
       div.stButton > button {{
           width: 100%;
-          min-height: 3.2em;
+          min-height: 3.0em;
           white-space: normal;
           text-align: left;
           border: 1px solid {accent}55;
           border-radius: 10px;
-          font-size: 1.02rem;
+          font-size: 1.0rem;
           line-height: 1.25rem;
-          padding: 0.6em 0.9em;
+          padding: 0.55em 0.9em;
       }}
       div.stButton > button:hover {{ border-color: {accent}; }}
       .su-quote {{
@@ -71,6 +77,20 @@ def inject_css(accent):
           background: linear-gradient(90deg, {accent}33, transparent);
           border-left: 5px solid {accent};
           padding: 0.5em 0.9em; border-radius: 6px; margin-bottom: 0.4em;
+      }}
+      .su-opt {{
+          border: 1px solid {accent}55; border-radius: 10px;
+          padding: 0.7em 0.9em; margin: 0.25em 0 0.45em;
+          background: #161b26; font-size: 0.95rem; line-height: 1.5rem;
+      }}
+      .su-item {{
+          border: 1px dashed {accent}88; border-radius: 10px;
+          padding: 0.7em 0.9em; margin: 0.2em 0 0.6em;
+          background: #1a1f2b;
+      }}
+      .su-gm {{
+          border-left: 4px solid #f85149; background: #2a1a1c;
+          padding: 0.5em 0.8em; border-radius: 6px; font-size: 0.85rem; margin-top: 0.4em;
       }}
       .su-bar-bg {{ background:#2b3242; border-radius:6px; height:14px; width:100%; overflow:hidden; }}
       .su-bar-fill {{ height:14px; border-radius:6px; }}
@@ -108,27 +128,45 @@ def active_ids(entry):
     return [p["id"] for p in active_party(entry)]
 
 
+def short_name(cid):
+    return PARTY_ALL[cid]["meno"].split(" (")[0]
+
+
 # =========================================================================
 #  D20 MECHANIKA
 # =========================================================================
 def animated_roll(placeholder, accent):
-    """Animovaný hod d20 — čísla sa preklikávajú, potom sa ustáli."""
+    """Animovaný hod d20 — fáza trasu (rýchlo) → spomalenie → finále."""
     final = random.randint(1, 20)
-    for _ in range(14):
+    # fáza 1 — rýchle striedanie (červená)
+    for _ in range(12):
         n = random.randint(1, 20)
         placeholder.markdown(
-            f"<div style='text-align:center;font-size:2.6rem;color:{accent}'>🎲 {n}</div>",
+            f"<div style='text-align:center;font-size:2.6rem;color:#f85149'>🎲 {n}</div>",
             unsafe_allow_html=True)
-        time.sleep(0.045)
+        time.sleep(0.05)
+    # fáza 2 — spomalenie (oranžová)
+    for _ in range(3):
+        n = random.randint(1, 20)
+        placeholder.markdown(
+            f"<div style='text-align:center;font-size:2.8rem;color:#d29922'>🎲 {n}</div>",
+            unsafe_allow_html=True)
+        time.sleep(0.18)
+    # finále — zlatá
     placeholder.markdown(
-        f"<div style='text-align:center;font-size:3rem;color:{accent};font-weight:bold'>🎲 {final}</div>",
+        f"<div style='text-align:center;font-size:3.2rem;color:{accent};font-weight:bold'>🎲 {final}</div>",
         unsafe_allow_html=True)
-    time.sleep(0.2)
+    time.sleep(0.25)
     return final
 
 
+def _atr_key(opt):
+    return opt.get("atribut_key") or opt.get("atribut")
+
+
 def evaluate(opt, roll, cid):
-    atr = st.session_state["stats"][cid].get(opt["atribut"], 0)
+    akey = _atr_key(opt)
+    atr = st.session_state["stats"][cid].get(akey, 0)
     bonus = opt.get("bonus", 0)
     total = roll + atr + bonus
     diff = total - opt["dc"]
@@ -139,7 +177,7 @@ def evaluate(opt, roll, cid):
     else:
         outcome = "fail"
     return {
-        "idx": None, "postava": cid, "atribut": opt["atribut"],
+        "idx": None, "postava": cid, "atribut": akey,
         "roll": roll, "atr": atr, "bonus": bonus, "total": total,
         "dc": opt["dc"], "diff": diff, "outcome": outcome,
     }
@@ -148,6 +186,8 @@ def evaluate(opt, roll, cid):
 def outcome_label(res):
     if res["roll"] == 20:
         return "💥 KRITICKÝ ÚSPECH (hod 20)!"
+    if res["roll"] == 1:
+        return "💀 KRITICKÝ NEÚSPECH (hod 1)!"
     return {
         "success": "✅ Úspech",
         "near": f"🟠 Tesný neúspech (chýbalo {abs(res['diff'])})",
@@ -155,97 +195,159 @@ def outcome_label(res):
     }[res["outcome"]]
 
 
+def atr_name(akey):
+    return STAT_NAMES[STAT_KEYS.index(akey)] if akey in STAT_KEYS else akey
+
+
 def render_calc(res):
     znak = "+" if res["bonus"] >= 0 else "−"
     st.markdown(
-        f"`{res['roll']} (hod) + {res['atr']} ({res['atribut']}) "
+        f"`{res['roll']} (hod) + {res['atr']} ({atr_name(res['atribut'])}) "
         f"{znak} {abs(res['bonus'])} (bonus) = {res['total']}`  vs  **DC {res['dc']}**"
     )
 
 
-# =========================================================================
-#  ROZHODNUTIA
-# =========================================================================
-def render_decision(n, ds, decision, accent):
+def render_option_panel(opt, accent):
+    """Detailný rozpis: postava, aktuálny atribút, bonus, DC, koľko treba hodiť."""
     ss = st.session_state
-    reskey = f"res{n}_{ds}"
-    char = lambda cid: PARTY_ALL[cid]
+    pid = opt["postava_id"]
+    akey = opt["atribut_key"]
+    emoji = STAT_LABELS[STAT_KEYS.index(akey)] if akey in STAT_KEYS else "•"
+    atr = ss["stats"][pid].get(akey, 0)
+    bonus = opt["bonus"]
+    total = atr + bonus
+    dc = opt["dc"]
+    need = dc - total
+    if need <= 1:
+        need_txt = "stačí hodiť <b>1+</b>"
+    elif need <= 20:
+        need_txt = f"treba hodiť <b>{need}+</b>"
+    else:
+        need_txt = "<b>len kritická 20</b> (+ šťastie)"
+    bonus_html = (f"<br>&nbsp;&nbsp;&nbsp;<span style='color:#9aa'>+ {bonus} bonus z výbavy/situácie</span>"
+                  f"<br>= <b>{total}</b> celkový základ") if bonus else ""
+    html = (f"<div class='su-opt' style='border-color:{accent}55'>"
+            f"<b>{opt['label']}</b><br>"
+            f"👤 {opt['postava_ikona']} {opt['postava_nazov']}<br>"
+            f"{emoji} {opt['atribut_nazov']}: <b>{atr}</b> (aktuálna){bonus_html}<br>"
+            f"🎯 DC {dc} · 📊 d20 + {total} ≥ {dc} → {need_txt}</div>")
+    st.markdown(html, unsafe_allow_html=True)
 
-    st.markdown(f"#### ⚔️ Rozhodnutie {n}")
-    st.caption(TYPE_BADGE.get(decision.get("type", ""), ""))
-    st.markdown(f"**{decision['prompt']}**")
+
+# =========================================================================
+#  ROZHODNUTIA — jednotný dispatcher
+# =========================================================================
+def decision_done(ds, dec):
+    ss = st.session_state
+    t = dec["typ"]
+    did = dec["id"]
+    if t == "predmet":
+        return f"predmet_done_{ds}_{did}" in ss
+    if t == "nakup":
+        return f"nakup_done_{ds}_{did}" in ss
+    return f"res_{ds}_{did}" in ss
+
+
+def render_decision(n, ds, dec, accent, entry, gm):
+    t = dec["typ"]
+    if t == "predmet":
+        return render_predmet_decision(n, ds, dec, entry, gm)
+    if t == "nakup":
+        return render_nakup_decision(n, ds, dec, entry)
+    return render_skill_decision(n, ds, dec, accent, entry, positive=(t == "detske"))
+
+
+def render_skill_decision(n, ds, dec, accent, entry, positive=False):
+    ss = st.session_state
+    reskey = f"res_{ds}_{dec['id']}"
+    badge = TYPE_BADGE.get(dec["typ"], "")
+
+    st.markdown(f"#### {badge} · Rozhodnutie {n}")
+    st.markdown(f"**{dec['prompt']}**")
 
     if reskey not in ss:
-        for idx, opt in enumerate(decision["options"]):
-            c = char(opt["postava"])
-            label = f"{opt['label']}  \n{c['icon']} {STAT_NAMES[STAT_KEYS.index(opt['atribut'])]} · DC {opt['dc']}"
-            if st.button(label, key=f"btn_d{n}_{ds}_{idx}"):
+        for idx, opt in enumerate(dec["options"]):
+            render_option_panel(opt, accent)
+            if st.button(f"🎲 {opt['postava_ikona']} {opt['postava_nazov']} — hodiť kockou",
+                         key=f"btn_{ds}_{dec['id']}_{idx}"):
                 ph = st.empty()
                 roll = animated_roll(ph, accent)
-                res = evaluate(opt, roll, opt["postava"])
+                res = evaluate(opt, roll, opt["postava_id"])
                 res["idx"] = idx
                 ss[reskey] = res
-                ss[f"d{n}_{ds}"] = idx
                 st.rerun()
         return False
 
-    # už rozhodnuté — zobraz výsledok
+    # už rozhodnuté
     res = ss[reskey]
-    opt = decision["options"][res["idx"]]
-    c = char(opt["postava"])
-
-    st.markdown(f"➡️ **{opt['label']}**  · {c['icon']} {c['meno']}")
+    opt = dec["options"][res["idx"]]
+    st.markdown(f"➡️ **{opt['label']}** · {opt['postava_ikona']} {opt['postava_nazov']}")
     render_calc(res)
-    st.markdown(f"### {outcome_label(res)}")
 
-    if res["outcome"] == "success":
-        st.success(opt["result_success"])
-    elif res["outcome"] == "near":
-        st.warning(opt["result_near"])
+    if positive:
+        # detské — vždy aspoň čiastočne pozitívne
+        head = "💥 Kritický úspech!" if res["roll"] == 20 else "🎈 Hotovo!"
+        st.markdown(f"### {head}")
+        txt = (opt["result_success"] if res["outcome"] == "success"
+               else opt["result_near"] if res["outcome"] == "near" else opt["result_fail"])
+        st.success(txt)
     else:
-        st.error(opt["result_fail"])
+        st.markdown(f"### {outcome_label(res)}")
+        if res["outcome"] == "success":
+            st.success(opt["result_success"])
+        elif res["outcome"] == "near":
+            st.warning(opt["result_near"])
+        else:
+            st.error(opt["result_fail"])
+
+    # Hod 1 — kritický neúspech: −10 % Výdrže navyše (raz)
+    if res["roll"] == 1 and not positive:
+        critkey = f"crit1_{ds}_{dec['id']}"
+        if not ss.get(critkey):
+            hp = ss["hp"][opt["postava_id"]]
+            strata = max(1, math.ceil(hp["max"] * 0.10))
+            hp["current"] = max(0, hp["current"] - strata)
+            ss[critkey] = True
+            st.caption(f"💀 Kritický neúspech: {opt['postava_nazov']} −{strata} Výdrže.")
 
     # Levelup pri hode 20 (max 1× za deň na postavu)
     if res["roll"] == 20:
-        lvlkey = f"levelup20_{ds}_{opt['postava']}"
-        atr_name = STAT_NAMES[STAT_KEYS.index(opt["atribut"])]
+        lvlkey = f"levelup20_{ds}_{opt['postava_id']}"
+        an = atr_name(res["atribut"])
         if ss.get(lvlkey):
-            st.caption(f"⭐ {c['meno']} už dnes získal/a +1 {atr_name} za hod 20.")
+            st.caption(f"⭐ {opt['postava_nazov']} už dnes získal/a +1 {an} za hod 20.")
         else:
-            if st.button(f"⭐ Potvrdiť levelup: +1 {atr_name} pre {c['meno']}",
-                         key=f"lvl_{n}_{ds}"):
-                ss["stats"][opt["postava"]][opt["atribut"]] += 1
+            if st.button(f"⭐ Potvrdiť levelup: +1 {an} pre {opt['postava_nazov']}",
+                         key=f"lvl_{ds}_{dec['id']}"):
+                ss["stats"][opt["postava_id"]][res["atribut"]] += 1
                 ss[lvlkey] = True
-                st.toast(f"{c['meno']}: +1 {atr_name}!", icon="⭐")
+                st.toast(f"{opt['postava_nazov']}: +1 {an}!", icon="⭐")
                 st.rerun()
 
-    # Veľký neúspech (−4+) → druhá šanca: iná postava, iný atribút, DC +5
-    if res["outcome"] == "fail":
-        render_second_chance(n, ds, decision, accent)
+    # Veľký neúspech → druhá šanca (nie pri detskom)
+    if res["outcome"] == "fail" and not positive:
+        render_second_chance(n, ds, dec, accent, entry)
 
-    # Reset tohto rozhodnutia
-    if st.button(f"↩️ Znova rozhodnutie {n}", key=f"reset_d{n}_{ds}"):
-        for k in (reskey, f"d{n}_{ds}", f"res{n}_{ds}_2"):
+    if st.button(f"↩️ Znova rozhodnutie {n}", key=f"reset_{ds}_{dec['id']}"):
+        for k in (reskey, f"res2_{ds}_{dec['id']}", f"crit1_{ds}_{dec['id']}"):
             ss.pop(k, None)
         st.rerun()
-
     return True
 
 
-def render_second_chance(n, ds, decision, accent):
+def render_second_chance(n, ds, dec, accent, entry):
     ss = st.session_state
-    res2key = f"res{n}_{ds}_2"
-    base_dc = decision["options"][ss[f"res{n}_{ds}"]["idx"]]["dc"]
+    res2key = f"res2_{ds}_{dec['id']}"
+    base_dc = dec["options"][ss[f"res_{ds}_{dec['id']}"]["idx"]]["dc"]
     new_dc = base_dc + 5
 
     st.markdown("---")
-    st.info(f"🎯 **Druhá šanca** — iná postava, iný atribút, DC +5 (**DC {new_dc}**). "
-            "GM vyberie, kto sa o to pokúsi.")
+    st.info(f"🎯 **Druhá šanca** — iná postava, iný atribút, DC +5 (**DC {new_dc}**).")
 
     if res2key in ss:
         r = ss[res2key]
         c = PARTY_ALL[r["postava"]]
-        st.markdown(f"➡️ Druhý pokus: {c['icon']} {c['meno']} ({STAT_NAMES[STAT_KEYS.index(r['atribut'])]})")
+        st.markdown(f"➡️ Druhý pokus: {c['icon']} {c['meno']} ({atr_name(r['atribut'])})")
         render_calc(r)
         st.markdown(f"**{outcome_label(r)}**")
         if r["total"] >= r["dc"]:
@@ -254,24 +356,156 @@ def render_second_chance(n, ds, decision, accent):
             st.error("Ani druhá šanca nevyšla — GM dotvorí následok.")
         return
 
-    entry = CAMPAIGN[ds]
     ids = active_ids(entry)
     col1, col2 = st.columns(2)
     with col1:
         pid = st.selectbox("Postava", ids,
                            format_func=lambda i: f"{PARTY_ALL[i]['icon']} {PARTY_ALL[i]['meno']}",
-                           key=f"sc_p_{n}_{ds}")
+                           key=f"sc_p_{ds}_{dec['id']}")
     with col2:
         atr = st.selectbox("Atribút", STAT_KEYS,
                            format_func=lambda k: STAT_NAMES[STAT_KEYS.index(k)],
-                           key=f"sc_a_{n}_{ds}")
-    if st.button("🎲 Hodiť druhú šancu", key=f"sc_btn_{n}_{ds}"):
+                           key=f"sc_a_{ds}_{dec['id']}")
+    if st.button("🎲 Hodiť druhú šancu", key=f"sc_btn_{ds}_{dec['id']}"):
         ph = st.empty()
         roll = animated_roll(ph, accent)
-        fake_opt = {"atribut": atr, "bonus": 0, "dc": new_dc}
-        r = evaluate(fake_opt, roll, pid)
+        r = evaluate({"atribut": atr, "bonus": 0, "dc": new_dc}, roll, pid)
         ss[res2key] = r
         st.rerun()
+
+
+def render_predmet_decision(n, ds, dec, entry, gm):
+    ss = st.session_state
+    it = dec["predmet"]
+    donekey = f"predmet_done_{ds}_{dec['id']}"
+
+    st.markdown(f"#### 🎁 · Rozhodnutie {n} — Nájdený predmet")
+    zahada = it.get("zahada")
+    extra = ""
+    if zahada:
+        extra += f"<br>🌀 <i>{zahada}</i>"
+    jed = " · <span style='color:#d29922'>jednorazový</span>" if it.get("jednorazovy") else ""
+    html = (f"<div class='su-item'><b>{it['nazov']}</b>{jed}<br>"
+            f"✨ {it.get('vyhody','—')}<br>"
+            f"⚠️ {it.get('nevyhody','—')}{extra}</div>")
+    st.markdown(html, unsafe_allow_html=True)
+    if gm and it.get("gm_poznamka"):
+        st.markdown(f"<div class='su-gm'>🔒 GM: {it['gm_poznamka']}</div>", unsafe_allow_html=True)
+
+    if donekey not in ss:
+        st.caption("Komu predmet pridelíte?")
+        ids = active_ids(entry)
+        cols = st.columns(3)
+        for i, cid in enumerate(ids):
+            full = len(ss["inventory"][cid]) >= INV_LIMIT
+            lbl = f"{PARTY_ALL[cid]['icon']} {short_name(cid)}" + (" (plný)" if full else "")
+            if cols[i % 3].button(lbl, key=f"give_{ds}_{dec['id']}_{cid}", disabled=full):
+                ss["inventory"][cid].append(it["nazov"])
+                ss[donekey] = cid
+                st.toast(f"{it['nazov']} → {short_name(cid)}", icon="🎁")
+                st.rerun()
+        if st.button("🚫 Nechať ležať (nebrať)", key=f"leave_{ds}_{dec['id']}"):
+            ss[donekey] = "_none"
+            st.rerun()
+        return False
+
+    who = ss[donekey]
+    if who == "_none":
+        st.info("Predmet ste nechali ležať.")
+    else:
+        st.success(f"Predmet dostal/a {PARTY_ALL[who]['icon']} {PARTY_ALL[who]['meno']}.")
+    if st.button(f"↩️ Znova rozhodnutie {n}", key=f"reset_{ds}_{dec['id']}"):
+        if who not in (None, "_none") and it["nazov"] in ss["inventory"].get(who, []):
+            ss["inventory"][who].remove(it["nazov"])
+        ss.pop(donekey, None)
+        st.rerun()
+    return True
+
+
+def do_purchase(buyer, sel, total, zdroj, clan_key, ds, did):
+    ss = st.session_state
+    osob = ss["gold"][buyer]
+    klan = ss["gold"][clan_key]
+    free = INV_LIMIT - len(ss["inventory"][buyer])
+    if len(sel) > free:
+        return False, f"Inventár {short_name(buyer)} nemá dosť miesta ({free} voľných)."
+    if zdroj == "Osobné":
+        if osob < total:
+            return False, "Málo osobného zlata."
+        ss["gold"][buyer] -= total
+    elif zdroj == "Klanové":
+        if klan < total:
+            return False, "Málo v klanovej pokladnici."
+        ss["gold"][clan_key] -= total
+    else:  # Kombinácia — najprv osobné, zvyšok z klanu
+        if osob + klan < total:
+            return False, "Málo zlata spolu (osobné + klanové)."
+        from_osob = min(osob, total)
+        ss["gold"][buyer] -= from_osob
+        ss["gold"][clan_key] -= (total - from_osob)
+    for p in sel:
+        ss["inventory"][buyer].append(p["nazov"])
+    # odznač vybrané checkboxy
+    for i in range(50):
+        ss.pop(f"buy_{ds}_{did}_{i}", None)
+    return True, f"Kúpené ({total} zl) pre {short_name(buyer)}."
+
+
+def render_nakup_decision(n, ds, dec, entry):
+    ss = st.session_state
+    market = dec["market"]
+    polozky = dec["polozky"]
+    did = dec["id"]
+    donekey = f"nakup_done_{ds}_{did}"
+
+    st.markdown(f"#### {market['ikona']} · Rozhodnutie {n} — {market['nazov']}")
+    st.caption(market["popis"])
+
+    ids = active_ids(entry)
+    buyer = st.selectbox("Kupujúci", ids,
+                         format_func=lambda i: f"{PARTY_ALL[i]['icon']} {PARTY_ALL[i]['meno']}",
+                         key=f"buyer_{ds}_{did}")
+    sel = []
+    for i, p in enumerate(polozky):
+        jed = " · jednorazový" if p.get("jednorazovy") else ""
+        lab = (f"{p.get('ikona', '🛒')} **{p['nazov']}** — ➕ {p['vyhoda']} · ➖ {p['nevyhoda']} · "
+               f"**{p['cena']} zl**{jed}")
+        if st.checkbox(lab, key=f"buy_{ds}_{did}_{i}"):
+            sel.append(p)
+
+    total = sum(p["cena"] for p in sel)
+    clan_key = "klan" if CLAN_OF.get(buyer) == "mala" else "klan_slnko"
+    osob = ss["gold"][buyer]
+    klan = ss["gold"][clan_key]
+    klan_nazov = CLANS["mala"]["nazov"] if clan_key == "klan" else CLANS["velka"]["nazov"]
+    st.markdown(f"💰 Osobné ({short_name(buyer)}): **{osob} zl** · 🏦 {klan_nazov}: **{klan} zl** · "
+                f"🧾 Vybrané: **{total} zl**")
+    zdroj = st.radio("Zaplatiť z", ["Osobné", "Klanové", "Kombinácia"], horizontal=True,
+                     key=f"pay_{ds}_{did}")
+
+    cols = st.columns(2)
+    if cols[0].button("✅ Kúpiť vybrané", key=f"buybtn_{ds}_{did}", disabled=(not sel)):
+        ok, msg = do_purchase(buyer, sel, total, zdroj, clan_key, ds, did)
+        if ok:
+            st.toast(msg, icon="🛒")
+        else:
+            st.session_state[f"buyerr_{ds}_{did}"] = msg
+        st.rerun()
+    if cols[1].button("➡️ Pokračovať (obchod hotový)", key=f"shopdone_{ds}_{did}"):
+        ss[donekey] = True
+        st.rerun()
+
+    err = ss.pop(f"buyerr_{ds}_{did}", None)
+    if err:
+        st.warning(err)
+
+    if donekey in ss:
+        st.success("Obchod uzavretý.")
+        if st.button(f"↩️ Znova rozhodnutie {n}", key=f"reset_{ds}_{did}"):
+            ss.pop(donekey, None)
+            st.rerun()
+        return True
+    return False
 
 
 # =========================================================================
@@ -299,6 +533,24 @@ def hp_bar_html(cur, mx):
             f"style='width:{width}%;background:{col}'></div></div>")
 
 
+def gold_input(label, store_key):
+    """Number_input pre zlato, ktorý rešpektuje aj programové zmeny (nákup, regenerácia).
+
+    ss['gold'][store_key] je kanonický zdroj. Widget-key sa zosynchronizuje pred
+    renderom, takže manuálna úprava aj nákup/regenerácia sa správne prejavia.
+    """
+    ss = st.session_state
+    wkey = f"goldw_{store_key}"
+    setflag = f"goldw_set_{store_key}"
+    cur = int(ss["gold"].get(store_key, 0))
+    if ss.get(setflag) != cur:           # programová zmena → premietni do widgetu
+        ss[wkey] = cur
+        ss[setflag] = cur
+    st.number_input(label, min_value=0, step=5, key=wkey)
+    ss["gold"][store_key] = int(ss[wkey])
+    ss[setflag] = int(ss[wkey])
+
+
 def render_char_card(cid, entry, accent):
     ss = st.session_state
     p = PARTY_ALL[cid]
@@ -309,7 +561,6 @@ def render_char_card(cid, entry, accent):
     with st.expander(f"{p['icon']} {p['meno']} — {p['zbran']}"):
         st.caption(p["rola"])
 
-        # Atribúty
         for key in STAT_KEYS:
             lbl = STAT_LABELS[STAT_KEYS.index(key)]
             name = STAT_NAMES[STAT_KEYS.index(key)]
@@ -320,7 +571,6 @@ def render_char_card(cid, entry, accent):
             cols[2].markdown(f"<span class='su-stat'><b>{val}</b></span>", unsafe_allow_html=True)
         st.caption(f"Σ celkovo: **{total}**")
 
-        # Míľnikové body — rozdelenie (+1 za bod, bez stropu)
         mp = ss["milestone_points"][cid]
         if mp > 0:
             st.markdown(f"🎖️ **Body na rozdelenie: {mp}**")
@@ -333,7 +583,6 @@ def render_char_card(cid, entry, accent):
                     st.rerun()
 
         st.markdown("---")
-        # Výdrž (životy)
         st.markdown(hp_bar_html(hp["current"], hp["max"]), unsafe_allow_html=True)
         st.markdown(f"🛡️ **Výdrž: {hp['current']} / {hp['max']}**")
         h = st.columns(4)
@@ -346,9 +595,8 @@ def render_char_card(cid, entry, accent):
         if h[3].button("+5", key=f"hp_p5_{cid}"):
             hp["current"] = min(hp["max"], hp["current"] + 5); st.rerun()
 
-        # Veštecká guľa pre Vedmu — −20 % max Výdrže
         if cid == "vedma":
-            if st.button("🔮 Použiť vešteckú guľu (−20 % Výdrže)", key=f"orb_{cid}"):
+            if st.button("🔮 Použiť vešteckú guľu (−20 % max Výdrže)", key=f"orb_{cid}"):
                 strata = math.ceil(hp["max"] * 0.20)
                 hp["max"] = max(1, hp["max"] - strata)
                 hp["current"] = min(hp["current"], hp["max"])
@@ -356,19 +604,15 @@ def render_char_card(cid, entry, accent):
                 st.rerun()
 
         st.markdown("---")
-        # Zlato (osobné)
-        new_gold = st.number_input("💰 Osobné zlato", min_value=0, step=5,
-                                   value=int(ss["gold"][cid]), key=f"gold_{cid}")
-        ss["gold"][cid] = int(new_gold)
+        gold_input("💰 Osobné zlato", cid)
 
         st.markdown("---")
-        # Štartovacia výbava (pevná)
         st.markdown("**🎒 Štartovacia výbava** *(pevná)*")
         for it in STARTING_EQUIPMENT.get(cid, []):
-            st.markdown(f"- {it['nazov']}  \n  <span style='font-size:0.78rem;color:#9aa'>➕ {it['vyhoda']} · ➖ {it['nevyhoda']}</span>",
-                        unsafe_allow_html=True)
+            st.markdown(
+                f"- {it['nazov']}  \n  <span style='font-size:0.78rem;color:#9aa'>➕ {it['vyhoda']} · ➖ {it['nevyhoda']}</span>",
+                unsafe_allow_html=True)
 
-        # Inventár (max 5)
         inv = ss["inventory"][cid]
         st.markdown(f"**📦 Inventár ({len(inv)}/{INV_LIMIT})**")
         for i, item in enumerate(list(inv)):
@@ -393,7 +637,7 @@ def render_char_card(cid, entry, accent):
 
 
 # =========================================================================
-#  SIDEBAR — KLAN, MÍĽNIKY, NOVÁ NOC
+#  SIDEBAR — KLAN, MÍĽNIKY, NOVÁ NOC, GM
 # =========================================================================
 def render_sidebar(entry, accent):
     ss = st.session_state
@@ -403,7 +647,6 @@ def render_sidebar(entry, accent):
         st.title("🗡️ Svetlo Úsvitu")
         st.caption("Prázdninová kampaň · 1.7. – 31.8.2026")
 
-        # Karty postáv
         st.markdown(f"### 🌳 {CLANS['mala']['nazov']}")
         for p in PARTY_MALA:
             render_char_card(p["id"], entry, accent)
@@ -415,19 +658,13 @@ def render_sidebar(entry, accent):
                 render_char_card(p["id"], entry, accent)
 
         st.markdown("---")
-        # Klanová pokladnica
         st.markdown("### 🏦 Klanová pokladnica")
-        kd = st.number_input(f"🌳 {CLANS['mala']['nazov']}", min_value=0, step=5,
-                             value=int(ss["gold"]["klan"]), key="gold_klan")
-        ss["gold"]["klan"] = int(kd)
+        gold_input(f"🌳 {CLANS['mala']['nazov']}", "klan")
         if is_velka:
-            ks = st.number_input(f"☀️ {CLANS['velka']['nazov']}", min_value=0, step=5,
-                                 value=int(ss["gold"]["klan_slnko"]), key="gold_klan_slnko")
-            ss["gold"]["klan_slnko"] = int(ks)
+            gold_input(f"☀️ {CLANS['velka']['nazov']}", "klan_slnko")
             st.caption("Počas Talianska majú obe klanové pokladnice spoločný cieľ.")
 
         st.markdown("---")
-        # Míľnikové body
         with st.expander("🎖️ Pridať míľnikové body"):
             st.caption("Ťažší nepriateľ 1 · Mini-boss 2 · Hlavný boss 5 · Kapitola 3")
             cnt = st.number_input("Počet bodov pre každú aktívnu postavu", min_value=1, value=1, step=1,
@@ -438,7 +675,6 @@ def render_sidebar(entry, accent):
                 st.toast(f"+{int(cnt)} bodov pre každú postavu", icon="🎖️")
                 st.rerun()
 
-        # Nová noc — regenerácia
         with st.expander("🌙 Nová noc (regenerácia)"):
             typ = st.selectbox("Typ prostredia", list(REGEN_RULES.keys()),
                                format_func=lambda k: REGEN_RULES[k]["label"], key="regen_typ")
@@ -460,7 +696,6 @@ def render_sidebar(entry, accent):
                 st.success(msg)
 
         st.markdown("---")
-        # Kapitoly
         with st.expander("📅 Kapitoly kampane"):
             for ch in CHAPTERS:
                 iko = "🌳+☀️" if ch["skupina"] == "velka" else "🌳"
@@ -469,7 +704,6 @@ def render_sidebar(entry, accent):
                     f"<b>{ch['nazov']}</b><br><span style='font-size:0.8rem'>{ch['od']} – {ch['do']} {iko}</span></div>",
                     unsafe_allow_html=True)
 
-        # Legendárne predmety
         with st.expander("✨ Legendárne predmety"):
             for li in LEGENDARY_ITEMS:
                 kedy = f"Deň {li['den']}" if li["den"] else "Priebeh kampane"
@@ -477,34 +711,18 @@ def render_sidebar(entry, accent):
                             f"<span style='font-size:0.8rem;color:#9aa'>➕ {li['vyhody']} · ➖ {li['nevyhody']}</span>",
                             unsafe_allow_html=True)
 
-        # O svete
         with st.expander("📖 O svete Eldorea"):
             st.write(WORLD_INTRO)
+
+        # ⚙️ diskrétny GM prepínač — úplne dole, bez popisu
+        st.markdown("<div style='height:1.5em'></div>", unsafe_allow_html=True)
+        st.toggle("⚙️", value=ss.get("gm_mode", False), key="gm_mode",
+                  help="GM režim (farby dní, skryté poznámky)")
 
 
 # =========================================================================
 #  HLAVNÁ PLOCHA
 # =========================================================================
-def render_items_and_shop(entry):
-    items = entry.get("items_day", [])
-    if not items:
-        return
-    st.markdown("#### 🎁 Predmety dňa")
-    najst = [it for it in items if it.get("kde", "najst") in ("najst", "nájsť")]
-    kupit = [it for it in items if it.get("kde") == "kupit"]
-
-    if najst:
-        st.markdown("**Nájsť:**")
-        for it in najst:
-            jed = " · *jednorazový*" if it.get("jednorazovy") else ""
-            st.markdown(f"- **{it['nazov']}** — ➕ {it['vyhody']} · ➖ {it['nevyhody']}{jed}")
-    if kupit:
-        st.markdown("**Kúpiť (Obchod):**")
-        for it in kupit:
-            st.markdown(f"- **{it['nazov']}** — {it['cena']} zl · ➕ {it['vyhody']} · ➖ {it['nevyhody']}")
-    st.caption("Predmety pridávaš postavám v ich karte v paneli vľavo.")
-
-
 def render_milnik(entry):
     m = entry.get("milnik")
     if not m:
@@ -520,11 +738,36 @@ def render_milnik(entry):
         st.rerun()
 
 
+def render_gm_calendar(entry):
+    """Zoznam farebne označených dní (boss/mini-boss/silnejší) — len v GM móde."""
+    cur_ch = entry["chapter"]
+    rows = []
+    for ds, e in sorted(CAMPAIGN.items()):
+        col = gm_color_for_day(e)
+        if col and e["chapter"] in (cur_ch, cur_ch + 1):
+            d = datetime.date.fromisoformat(ds)
+            m = e.get("milnik", {})
+            rows.append(f"{GM_DOT[col]} **Deň {e['day']}** ({d.strftime('%d.%m.')}) — "
+                        f"{m.get('popis', GM_DOT_LABEL[col])}")
+    with st.expander("🔒 GM kalendár — farby dní (táto + nasledujúca kapitola)", expanded=False):
+        st.caption("🔴 Boss · 🟠 Mini-boss · 🟡 Silnejší nepriateľ — len pre GM, hráčom skryté.")
+        if rows:
+            for r in rows:
+                st.markdown(r)
+        else:
+            st.markdown("V tejto a nasledujúcej kapitole nie sú vyznačené žiadne bossy.")
+
+
+RESET_PREFIXES = ("res_", "res2_", "crit1_", "predmet_done_", "nakup_done_",
+                  "buy_", "buyer_", "buyerr_", "pay_", "shopdone_", "give_",
+                  "leave_", "levelup20_", "sc_", "balloons_",
+                  "d1_", "d2_", "d3_", "res1_", "res3_")
+
+
 def reset_day(ds):
     ss = st.session_state
-    prefixes = ("d1_", "d2_", "d3_", "res1_", "res2_", "res3_", "levelup20_", "ability_")
     for k in list(ss.keys()):
-        if isinstance(k, str) and ds in k and k.startswith(prefixes):
+        if isinstance(k, str) and ds in k and k.startswith(RESET_PREFIXES):
             ss.pop(k, None)
 
 
@@ -534,13 +777,11 @@ def main():
     today = datetime.date.today()
     default = today if MIN_DATE <= today <= MAX_DATE else MIN_DATE
 
-    # Prvotné určenie dátumu (pre accent farbu pred injektovaním CSS)
     sel_default = st.session_state.get("sel_date", default)
     entry0 = CAMPAIGN.get(sel_default.isoformat())
     accent = CHAPTER_COLORS.get(entry0["chapter"], "#f4c430") if entry0 else "#f4c430"
     inject_css(accent)
 
-    # Dátumový prepínač + reset
     top = st.columns([3, 1])
     with top[0]:
         vybrany = st.date_input("📅 Dátum hry", value=sel_default,
@@ -562,8 +803,8 @@ def main():
     accent = CHAPTER_COLORS.get(entry["chapter"], "#f4c430")
     chapter = chapter_by_id(entry["chapter"])
     is_velka = entry["group"] == "velka"
+    gm = st.session_state.get("gm_mode", False)
 
-    # Sidebar
     render_sidebar(entry, accent)
 
     # Progress + badge
@@ -572,45 +813,48 @@ def main():
         st.progress(0.0, text="🌱 Skúšobný deň (pred štartom kampane 1.7.)")
     else:
         st.progress(entry["day"] / 62, text=f"Deň {entry['day']} / 62")
+
     clan_badge = (f"🌳☀️ VEĽKÁ DRUŽINA (15) — {CLANS['mala']['nazov']} + {CLANS['velka']['nazov']}"
                   if is_velka else f"🌳 MALÁ DRUŽINA (7) — {CLANS['mala']['nazov']}")
+    gmcol = gm_color_for_day(entry)
+    gm_tag = f" · {GM_DOT[gmcol]} {GM_DOT_LABEL[gmcol]}" if (gm and gmcol) else ""
     st.markdown(
         f"<div class='su-chapter' style='border-color:{accent}'>"
-        f"<b>{chapter['nazov']}</b> · {clan_badge}</div>", unsafe_allow_html=True)
+        f"<b>{chapter['nazov']}</b> · {clan_badge}<br>"
+        f"<span style='font-size:0.82rem;color:#9aa'>{day_type_label(entry)}{gm_tag}</span></div>",
+        unsafe_allow_html=True)
+
     if is_test:
         st.info("🌱 **Skúšobný deň** — nezáväzný nácvik pred štartom kampane (1.7.). "
-                "Vyskúšajte si hod kockou, levelovanie v karte postavy, predmety a zlato. Nič sa nepokazí.")
+                "Vyskúšajte si hod kockou, levelovanie, predmety, obchod aj detskú úlohu. Nič sa nepokazí.")
     if is_velka:
         st.warning("💡 Dnes hrá veľká skupina (15 osôb) — zvážte rozdelenie na 2–3 menšie tímy.")
+    if gm:
+        render_gm_calendar(entry)
 
     # Nadpis + intro
     st.markdown(f"## {entry['title']}")
     st.markdown("##### 📖 Prečítaj nahlas")
     st.markdown(f"<div class='su-quote'>{entry['intro']}</div>", unsafe_allow_html=True)
-    st.markdown("---")
 
-    # Rozhodnutia 1 → 2 → 3 (sekvenčne)
-    done1 = render_decision(1, ds, entry["decision1"], accent)
-    all_done = False
-    if done1:
+    # Rozhodnutia — sekvenčne (bežné → predmet → nákup → detské)
+    decisions = build_decisions(ds, entry)
+    all_done = True
+    for i, dec in enumerate(decisions, start=1):
         st.markdown("---")
-        done2 = render_decision(2, ds, entry["decision2"], accent)
-        if done2:
-            st.markdown("---")
-            done3 = render_decision(3, ds, entry["decision3"], accent)
-            all_done = done3
+        done = render_decision(i, ds, dec, accent, entry, gm)
+        if not done:
+            all_done = False
+            break
 
     st.markdown("---")
     render_milnik(entry)
-    render_items_and_shop(entry)
 
     if all_done:
-        # Outro + odkaz na zajtra
-        st.markdown("---")
         zajtra = vybrany + datetime.timedelta(days=1)
         nxt = CAMPAIGN.get(zajtra.isoformat())
         nxt_t = f" — *{entry.get('next_hint') or (nxt['title'] if nxt else '')}*"
-        st.markdown(f"#### 🌅 Záver dňa")
+        st.markdown("#### 🌅 Záver dňa")
         st.markdown(f"<div class='su-quote'>{entry['outro']}{nxt_t}</div>", unsafe_allow_html=True)
         if not st.session_state.get(f"balloons_{ds}"):
             st.balloons()

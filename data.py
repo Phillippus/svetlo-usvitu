@@ -3597,4 +3597,310 @@ CAMPAIGN.update({
 
 })
 
-# === KONIEC ŠTATICKEJ ČASTI — kapitoly pripájať nad tento riadok ===
+# === KONIEC SCENÁROV — kapitoly pripájať nad tento riadok ===
+
+
+# =========================================================================
+#  TRHY / OBCHODY (10 typov) — katalóg tovaru
+# =========================================================================
+#  Každá položka: nazov, ikona, vyhoda, nevyhoda, cena, (jednorazovy)
+MARKETS = {
+    "dedinsky": {"nazov": "Dedinský trh", "ikona": "🏘️",
+        "popis": "Stánky v Tichom Dole a okolitých dedinách — základné potreby.",
+        "polozky": [
+            {"nazov": "Elfský dlhý luk", "ikona": "🏹", "vyhoda": "+3 Obratnosť, dlhší dostrel", "nevyhoda": "−1 Sila", "cena": 65},
+            {"nazov": "Meč železnej vôle", "ikona": "⚔️", "vyhoda": "+2 Sila, +1 Obratnosť", "nevyhoda": "ťažký", "cena": 55},
+            {"nazov": "Štít dubového dreva", "ikona": "🛡️", "vyhoda": "+2 Výdrž", "nevyhoda": "−1 Obratnosť", "cena": 40},
+            {"nazov": "Lektvar liečenia", "ikona": "🧪", "vyhoda": "+50 % Výdrže", "nevyhoda": "jednorazový", "cena": 25, "jednorazovy": True},
+            {"nazov": "Zásoby jedla", "ikona": "🍖", "vyhoda": "+5 % regenerácie/noc", "nevyhoda": "minie sa", "cena": 8, "jednorazovy": True},
+            {"nazov": "Doplnenie šípov (20 ks)", "ikona": "🎯", "vyhoda": "Plný tulec", "nevyhoda": "—", "cena": 20, "jednorazovy": True},
+        ]},
+    "lesny": {"nazov": "Lesný trh druidov", "ikona": "🌿",
+        "popis": "V Háji Strážneho ducha — prírodné liečivá a zvierací spoločníci.",
+        "polozky": [
+            {"nazov": "Liečivé byliny (zväzok)", "ikona": "🌱", "vyhoda": "+20 % Výdrže mimo boja", "nevyhoda": "treba čas", "cena": 18, "jednorazovy": True},
+            {"nazov": "Uspávací prášok", "ikona": "💤", "vyhoda": "Uspí jedného nepriateľa", "nevyhoda": "jednorazový", "cena": 22, "jednorazovy": True},
+            {"nazov": "Sokol-spoločník", "ikona": "🦅", "vyhoda": "Prieskum z výšky", "nevyhoda": "potrebuje krmivo", "cena": 50},
+            {"nazov": "Plášť z lístia", "ikona": "🍃", "vyhoda": "+2 Obratnosť v lese", "nevyhoda": "mimo lesa bez efektu", "cena": 30},
+            {"nazov": "Jed na šípy (3×)", "ikona": "🏹", "vyhoda": "+2 k hodu, −1 Výdrž/ťah nepriateľovi", "nevyhoda": "3 použitia", "cena": 28, "jednorazovy": True},
+        ]},
+    "alchymisticky": {"nazov": "Alchymistický obchod", "ikona": "⚗️",
+        "popis": "V mestečku na ceste na juh — lektvary, zvitky, ingrediencie.",
+        "polozky": [
+            {"nazov": "Zvitok múdrosti", "ikona": "📜", "vyhoda": "+2 Intelekt, 1× použitie", "nevyhoda": "jednorazový", "cena": 35, "jednorazovy": True},
+            {"nazov": "Lektvar sily", "ikona": "💪", "vyhoda": "+4 Sila na deň", "nevyhoda": "−1 Obratnosť na deň", "cena": 40, "jednorazovy": True},
+            {"nazov": "Lektvar neviditeľnosti", "ikona": "🫥", "vyhoda": "Neviditeľnosť na chvíľu", "nevyhoda": "jednorazový", "cena": 45, "jednorazovy": True},
+            {"nazov": "Výbušná fľaša", "ikona": "🧨", "vyhoda": "Zasiahne oblasť", "nevyhoda": "hlučné", "cena": 30, "jednorazovy": True},
+            {"nazov": "Lektvar liečenia", "ikona": "🧪", "vyhoda": "+50 % Výdrže", "nevyhoda": "jednorazový", "cena": 25, "jednorazovy": True},
+        ]},
+    "klanovy": {"nazov": "Klanový trh (Taliansko)", "ikona": "🏕️",
+        "popis": "Exotický tovar Klanu Zlatého Slnka — len počas Talianska (18.–25.7.).",
+        "polozky": [
+            {"nazov": "Slnečný amulet", "ikona": "🌞", "vyhoda": "+2 Charizma, +1 Mágia", "nevyhoda": "—", "cena": 60},
+            {"nazov": "Zlatá kopija", "ikona": "🔱", "vyhoda": "+3 Sila na diaľku", "nevyhoda": "−1 Obratnosť v úzkych", "cena": 70},
+            {"nazov": "Korenené zásoby", "ikona": "🌶️", "vyhoda": "+10 % regenerácie/noc", "nevyhoda": "minie sa", "cena": 15, "jednorazovy": True},
+            {"nazov": "Hodvábny plášť", "ikona": "🧣", "vyhoda": "+2 Charizma", "nevyhoda": "−1 Výdrž v chlade", "cena": 35},
+            {"nazov": "Spojenecký prsteň", "ikona": "💍", "vyhoda": "+1 ku hodom keď oba klany spolu", "nevyhoda": "len vo veľkej družine", "cena": 50},
+        ]},
+    "pristavny": {"nazov": "Prístavný trh", "ikona": "🚢",
+        "popis": "Riečny prístav cestou domov — vzácne suroviny a pirátske kúsky.",
+        "polozky": [
+            {"nazov": "Pirátsky hák", "ikona": "🪝", "vyhoda": "+2 k šplhaniu a prekážkam", "nevyhoda": "−1 Charizma", "cena": 25},
+            {"nazov": "Morská mapa", "ikona": "🗺️", "vyhoda": "+2 Intelekt k navigácii", "nevyhoda": "zastará", "cena": 30},
+            {"nazov": "Soľou kalená dýka", "ikona": "🗡️", "vyhoda": "+2 Obratnosť k útoku", "nevyhoda": "−1 Sila", "cena": 38},
+            {"nazov": "Fľaša rumu (na odvahu)", "ikona": "🍺", "vyhoda": "+2 Charizma na večer", "nevyhoda": "ráno −1 Intelekt", "cena": 12, "jednorazovy": True},
+            {"nazov": "Vrhacie nože (5×)", "ikona": "🔪", "vyhoda": "+2 útok na diaľku", "nevyhoda": "5 použití", "cena": 28, "jednorazovy": True},
+        ]},
+    "kovac": {"nazov": "Kováč", "ikona": "⚒️",
+        "popis": "Pred odchodom do púšte — zbrane, zbroje, štíty a opravy.",
+        "polozky": [
+            {"nazov": "Kalená oceľová zbroj", "ikona": "🛡️", "vyhoda": "+4 Výdrž, pri 11+ zachráni život", "nevyhoda": "−2 Obratnosť", "cena": 75},
+            {"nazov": "Ostrý bojový meč", "ikona": "⚔️", "vyhoda": "+3 Sila k útoku", "nevyhoda": "−1 Obratnosť", "cena": 60},
+            {"nazov": "Oceľový štít", "ikona": "🛡️", "vyhoda": "+2 k obrane", "nevyhoda": "−1 Obratnosť", "cena": 45},
+            {"nazov": "Oprava výbavy", "ikona": "🔧", "vyhoda": "Odstráni poškodenie predmetu", "nevyhoda": "—", "cena": 20, "jednorazovy": True},
+            {"nazov": "Ozubený kyjak", "ikona": "🔨", "vyhoda": "+4 Sila", "nevyhoda": "−3 Obratnosť", "cena": 60},
+        ]},
+    "tajomny": {"nazov": "Tajomný obchodník", "ikona": "🔮",
+        "popis": "Pri oáze v púšti — vzácne a magické predmety, drahšie ako inde.",
+        "polozky": [
+            {"nazov": "Prsteň ohňovzdornosti", "ikona": "🔥", "vyhoda": "Chráni pred žiarom púšte", "nevyhoda": "−1 Mágia", "cena": 65},
+            {"nazov": "Kryštál many", "ikona": "🔷", "vyhoda": "+3 Mágia", "nevyhoda": "krehký", "cena": 80},
+            {"nazov": "Závoj tieňov", "ikona": "🌫️", "vyhoda": "+3 Obratnosť v noci", "nevyhoda": "cez deň −1 Obratnosť", "cena": 55},
+            {"nazov": "Fľaša púštnej vody", "ikona": "💧", "vyhoda": "+10 % regenerácie aj bez tábora", "nevyhoda": "jednorazová", "cena": 18, "jednorazovy": True},
+            {"nazov": "Veštecké kosti", "ikona": "🦴", "vyhoda": "1× náhľad do budúcnosti bez ceny Výdrže", "nevyhoda": "jednorazové", "cena": 50, "jednorazovy": True},
+        ]},
+    "karavana": {"nazov": "Putovná karavána", "ikona": "🎪",
+        "popis": "Objaví sa nečakane — neobvyklé predmety, hry šťastia, falzifikáty aj poklady.",
+        "polozky": [
+            {"nazov": "Záhadná truhlica", "ikona": "🎁", "vyhoda": "Čas ukáže… (efekt neskôr)", "nevyhoda": "nevieš čo je vnútri", "cena": 30},
+            {"nazov": "Kúzlo šťastia (zvitok)", "ikona": "🍀", "vyhoda": "+3 Šťastie na jeden hod", "nevyhoda": "jednorazové", "cena": 25, "jednorazovy": True},
+            {"nazov": "Falošný drahokam", "ikona": "💎", "vyhoda": "+2 Charizma pri vyjednávaní", "nevyhoda": "ak ho odhalia, −2 Charizma", "cena": 15},
+            {"nazov": "Cingľavý prívesok", "ikona": "🔔", "vyhoda": "Varuje pred pascami", "nevyhoda": "občas falošný poplach", "cena": 20},
+            {"nazov": "Exotické sladkosti", "ikona": "🍬", "vyhoda": "+1 nálada celej družiny (regenerácia +5 %)", "nevyhoda": "minú sa", "cena": 10, "jednorazovy": True},
+        ]},
+    "hradny": {"nazov": "Hradný arzenál", "ikona": "🏰",
+        "popis": "V spojeneckej pevnosti — ťažké zbrane, legendárne zbroje, vojenské vybavenie.",
+        "polozky": [
+            {"nazov": "Vojenská plátová zbroj", "ikona": "🛡️", "vyhoda": "+5 Výdrž, pri 10+ zachráni život", "nevyhoda": "−3 Obratnosť", "cena": 90},
+            {"nazov": "Obojručný meč", "ikona": "⚔️", "vyhoda": "+4 Sila k útoku", "nevyhoda": "−2 Obratnosť", "cena": 85},
+            {"nazov": "Veliteľský roh", "ikona": "📯", "vyhoda": "+1 ku hodom celej skupiny v boji", "nevyhoda": "počujú ho aj nepriatelia", "cena": 60},
+            {"nazov": "Kuša s pancierovými šípmi", "ikona": "🏹", "vyhoda": "+3 útok, preráža pancier", "nevyhoda": "pomalé nabíjanie", "cena": 70},
+            {"nazov": "Veža-štít", "ikona": "🛡️", "vyhoda": "+3 k obrane celej línie", "nevyhoda": "−2 Obratnosť", "cena": 55},
+        ]},
+    "chramovy": {"nazov": "Chrámový obchod", "ikona": "⛪",
+        "popis": "Pred finálnou bitkou — požehnané predmety a ochrana proti tieňu.",
+        "polozky": [
+            {"nazov": "Svätá voda (3×)", "ikona": "💧", "vyhoda": "+2 k hodu proti tieňovým tvorom", "nevyhoda": "3 použitia", "cena": 30, "jednorazovy": True},
+            {"nazov": "Požehnaný amulet", "ikona": "✝️", "vyhoda": "+2 Výdrž, +1 vs temná mágia", "nevyhoda": "—", "cena": 55},
+            {"nazov": "Svetelný lampáš", "ikona": "🏮", "vyhoda": "Rozháňa tieň, +2 v tme", "nevyhoda": "prezradí polohu", "cena": 35},
+            {"nazov": "Modlitebná stuha", "ikona": "🎗️", "vyhoda": "1× ochráni pred kliatbou", "nevyhoda": "jednorazová", "cena": 25, "jednorazovy": True},
+            {"nazov": "Olej úsvitu", "ikona": "🌅", "vyhoda": "Zbraň žiari, +2 vs Morgrathovi sluhovia", "nevyhoda": "minie sa", "cena": 40, "jednorazovy": True},
+        ]},
+}
+
+# Ktorý trh je dostupný v ktorý deň (kampaň má len pár nákupných dní, aby zlato malo váhu)
+MARKET_DAYS = {
+    "2026-06-30": "dedinsky",       # skúšobný nákup
+    "2026-07-02": "dedinsky",
+    "2026-07-06": "dedinsky",
+    "2026-07-11": "alchymisticky",
+    "2026-07-14": "lesny",
+    "2026-07-16": "karavana",
+    "2026-07-19": "klanovy",
+    "2026-07-23": "klanovy",
+    "2026-07-28": "pristavny",
+    "2026-08-02": "kovac",
+    "2026-08-08": "tajomny",
+    "2026-08-15": "hradny",
+    "2026-08-22": "karavana",
+    "2026-08-28": "chramovy",
+}
+
+# =========================================================================
+#  DETSKÉ ROZHODNUTIE — vždy posledné, nízke DC, vždy aspoň čiastočne pozitívne
+# =========================================================================
+#  Goblin (👺 Šťastie) a Zlatý medvedík (🐻 Charizma) dostanú vlastnú malú úlohu.
+DETSKE_POOL = [
+    {"prompt": "Kým dospelí riešia veľké veci, čo urobia najmenší?",
+     "options": [
+        {"label": "A) Goblin hodí Šťastnú kocku „na šťastie pre celú rodinu“", "postava": "goblin", "atribut": "stastie", "bonus": 0, "dc": 11,
+         "result_success": "Kocka padne na 6 — Goblin vyhlási, že zajtra bude skvelý deň. A nikto mu neodporuje!",
+         "result_near": "Kocka sa dlho kotúľa a zastane na 3 — Goblin spokojne kýve, že „to úplne stačí“.",
+         "result_fail": "Kocka zapadne pod kameň — Goblin ju hrdinsky vyloví a aj tak sa usmieva."},
+        {"label": "B) Medvedík každého objíme „na odvahu“", "postava": "medvedik", "atribut": "charizma", "bonus": 2, "dc": 10,
+         "result_success": "Objatie zaberie — celá družina sa cíti silnejšie a usmieva sa.",
+         "result_near": "Medvedík stihne objať polovicu družiny, kým ho nepremôže zívanie.",
+         "result_fail": "Medvedík zaspí uprostred objatia — a aj tak je to to najroztomilejšie dnes."},
+        {"label": "C) Spolu postavia malú „strážnu vežu“ z kamienkov", "postava": "goblin", "atribut": "obratnost", "bonus": 0, "dc": 11,
+         "result_success": "Vežička stojí! Najmenší ju vyhlásia za oficiálnu ochranu tábora.",
+         "result_near": "Vežička sa nakloní, no nespadne — „tak to má byť,“ tvrdí Goblin.",
+         "result_fail": "Vežička sa rozsype — ale stavať ju odznova je tá najlepšia zábava."}]},
+    {"prompt": "Najmenší si našli vlastné dobrodružstvo. Aké?",
+     "options": [
+        {"label": "A) Medvedík sa skamaráti s túlavým zvieratkom", "postava": "medvedik", "atribut": "charizma", "bonus": 2, "dc": 10,
+         "result_success": "Zvieratko ho nasleduje na každom kroku — nový malý spojenec družiny!",
+         "result_near": "Zvieratko si nechá pohladiť, no za rodinou ide len kúsok.",
+         "result_fail": "Zvieratko uteká za motýľom — Medvedík sa smeje a beží za ním."},
+        {"label": "B) Goblin „pašuje“ koláč pre celú rodinu", "postava": "goblin", "atribut": "obratnost", "bonus": 0, "dc": 11,
+         "result_success": "Goblin sa prešmykne okolo a prinesie koláč pre každého — hrdina večera!",
+         "result_near": "Polovicu koláča zje cestou, no o zvyšok sa hrdo podelí.",
+         "result_fail": "Pristihnú ho s plnými ústami — a aj tak dostane ešte jeden kúsok."},
+        {"label": "C) Spolu hľadajú „poklad“ pri tábore", "postava": "goblin", "atribut": "stastie", "bonus": 0, "dc": 11,
+         "result_success": "Nájdu lesklý kamienok — Goblin prisahá, že je to drahokam. Možno má pravdu.",
+         "result_near": "Nájdu pekné pierko — aj to je predsa poklad.",
+         "result_fail": "Nenájdu nič, no zato sa poriadne vyšantia a unaví ich to akurát na spánok."}]},
+    {"prompt": "Je čas oddychu — čím sa zabavia najmladší členovia?",
+     "options": [
+        {"label": "A) Medvedík rozosmeje unavenú družinu", "postava": "medvedik", "atribut": "charizma", "bonus": 2, "dc": 10,
+         "result_success": "Medvedíkove grimasy rozosmejú aj toho najunavenejšieho — nálada hore!",
+         "result_near": "Pár úsmevov sa ujme, zvyšok je príliš ospalý.",
+         "result_fail": "Medvedík sa rozosmeje sám sebe tak, že ho to uspí. Roztomilé."},
+        {"label": "B) Goblin usporiada „preteky“ chrobákov", "postava": "goblin", "atribut": "stastie", "bonus": 0, "dc": 11,
+         "result_success": "Goblinov chrobák vyhrá — oslava ako po veľkom víťazstve!",
+         "result_near": "Preteky skončia remízou, no zábava bola veľká.",
+         "result_fail": "Chrobáky utečú rôznymi smermi — naháňačka pobaví celý tábor."},
+        {"label": "C) Spolu strážia „dôležitý“ kúsok tábora", "postava": "medvedik", "atribut": "mudrost", "bonus": 0, "dc": 10,
+         "result_success": "Strážia vzorne — a naozaj si všimnú spadnutý hrniec skôr než ostatní.",
+         "result_near": "Chvíľu strážia, potom zaspia opretí o seba.",
+         "result_fail": "Zaspia hneď — ale vyzerajú pri tom ako dvaja maličkí strážcovia."}]},
+    {"prompt": "Dobrodružstvo pre tých úplne najmenších — čo dnes?",
+     "options": [
+        {"label": "A) Goblin nájde „tajnú skratku“", "postava": "goblin", "atribut": "stastie", "bonus": 0, "dc": 12,
+         "result_success": "Skratka naozaj funguje — Goblin sa tvári ako najlepší prieskumník sveta.",
+         "result_near": "Skratka je dlhšia než cesta, no zato cez peknú lúku.",
+         "result_fail": "Skratka vedie do kríkov — zato tam rastú maliny!"},
+        {"label": "B) Medvedík rozdá „medaily za odvahu“ (kamienky)", "postava": "medvedik", "atribut": "charizma", "bonus": 2, "dc": 10,
+         "result_success": "Každý dostane kamienok-medailu a hrdo si ju nesie — družina je dojatá.",
+         "result_near": "Pár medailí sa rozdá, na zvyšok Medvedík zabudne a zaspí.",
+         "result_fail": "Medvedík si všetky medaily nechá pre seba — a je to úplne v poriadku."},
+        {"label": "C) Spolu „pomáhajú“ baliť výstroj", "postava": "goblin", "atribut": "obratnost", "bonus": 0, "dc": 11,
+         "result_success": "Prekvapivo poskladajú všetko správne — dospelí nestačia žasnúť.",
+         "result_near": "Polovicu zbalia dobre, druhú treba potichu prebaliť.",
+         "result_fail": "Z batoha spravia hrad — baliť sa bude musieť odznova, ale s úsmevom."}]},
+]
+
+
+# =========================================================================
+#  NORMALIZÁCIA — prevod existujúcich dní na jednotnú decisions[] schému
+# =========================================================================
+
+def _stable_idx(ds, n):
+    """Deterministický index 0..n-1 z dátumu (stabilný naprieč spusteniami)."""
+    if n <= 0:
+        return 0
+    return sum(bytes(ds, "utf-8")) % n
+
+
+def gm_color_for_day(entry):
+    """Farba dňa pre GM kalendár: red=boss, orange=mini-boss, yellow=silnejší/kapitola."""
+    m = entry.get("milnik")
+    if not m:
+        return None
+    return {
+        "hlavny_boss": "red",
+        "mini_boss": "orange",
+        "tazsi_nepriatel": "yellow",
+        "kapitola": "yellow",
+    }.get(m.get("typ"))
+
+
+def day_type_label(entry):
+    """Stručný typ dňa pre badge."""
+    if entry.get("day", 1) < 1:
+        return "🌱 Skúšobný"
+    m = entry.get("milnik") or {}
+    t = m.get("typ")
+    if t == "hlavny_boss":
+        return "🔴 Boss"
+    if t == "mini_boss":
+        return "🟠 Mini-boss"
+    if t == "tazsi_nepriatel":
+        return "🟡 Silnejší nepriateľ"
+    if entry.get("group") == "velka":
+        return "🎉 Veľká družina"
+    return "🗺️ Bežný deň"
+
+
+def _norm_option(o):
+    ak = o["atribut"]
+    p = PARTY_ALL.get(o["postava"], {"meno": o["postava"], "icon": "❔"})
+    return {
+        "label": o["label"],
+        "postava_id": o["postava"],
+        "postava_nazov": p["meno"],
+        "postava_ikona": p["icon"],
+        "atribut_key": ak,
+        "atribut_nazov": STAT_NAMES[STAT_KEYS.index(ak)] if ak in STAT_KEYS else ak,
+        "bonus": o.get("bonus", 0),
+        "dc": o["dc"],
+        "result_success": o["result_success"],
+        "result_near": o["result_near"],
+        "result_fail": o["result_fail"],
+    }
+
+
+def shop_for_day(ds, entry):
+    """Vráti (market_dict, polozky) pre daný deň, alebo (None, [])."""
+    market = None
+    polozky = []
+    mk = MARKET_DAYS.get(ds)
+    if mk and mk in MARKETS:
+        market = {"nazov": MARKETS[mk]["nazov"], "ikona": MARKETS[mk]["ikona"], "popis": MARKETS[mk]["popis"]}
+        polozky = [dict(p) for p in MARKETS[mk]["polozky"]]
+    # pridaj prípadné "kupit" položky z items_day
+    extra = []
+    for it in entry.get("items_day", []):
+        if it.get("kde") == "kupit":
+            extra.append({
+                "nazov": it["nazov"], "ikona": "🛒",
+                "vyhoda": it.get("vyhody", ""), "nevyhoda": it.get("nevyhody", ""),
+                "cena": it.get("cena", 0), "jednorazovy": it.get("jednorazovy", False),
+            })
+    if extra and market is None:
+        market = {"nazov": "Obchod dňa", "ikona": "🛒", "popis": "Dnešná ponuka na kúpu."}
+    polozky = polozky + extra
+    if market is None:
+        return None, []
+    return market, polozky
+
+
+def detske_for_day(ds):
+    """Detské rozhodnutie (vždy posledné) — deterministicky vybrané z DETSKE_POOL."""
+    tpl = DETSKE_POOL[_stable_idx(ds, len(DETSKE_POOL))]
+    return {
+        "id": "detske",
+        "typ": "detske",
+        "prompt": tpl["prompt"],
+        "options": [_norm_option(o) for o in tpl["options"]],
+    }
+
+
+def build_decisions(ds, entry):
+    """Jednotný zoznam rozhodnutí dňa: bežné (decision1/2/3) + predmet + nákup + detské (posledné)."""
+    out = []
+    for i in (1, 2, 3):
+        d = entry.get(f"decision{i}")
+        if not d:
+            continue
+        out.append({
+            "id": f"d{i}",
+            "typ": d.get("type", "fyzicke"),
+            "prompt": d["prompt"],
+            "options": [_norm_option(o) for o in d["options"]],
+        })
+    # nájdené predmety -> predmetové rozhodnutia
+    pi = 0
+    for it in entry.get("items_day", []):
+        if it.get("kde", "najst") in ("najst", "nájsť"):
+            out.append({"id": f"predmet{pi}", "typ": "predmet", "predmet": it})
+            pi += 1
+    # nákup (trh)
+    market, polozky = shop_for_day(ds, entry)
+    if market:
+        out.append({"id": "nakup", "typ": "nakup", "market": market, "polozky": polozky})
+    # detské vždy posledné
+    out.append(detske_for_day(ds))
+    return out
+
+
+# === KONIEC DÁT ===
