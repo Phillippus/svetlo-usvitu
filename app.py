@@ -11,6 +11,10 @@ import datetime
 
 import streamlit as st
 
+import importlib as _il
+import data as _data
+_il.reload(_data)  # deploy-safe: vynúti čerstvý data modul (Streamlit cachuje moduly)
+
 from data import (
     CAMPAIGN, CHAPTERS, CHAPTER_COLORS, chapter_by_id,
     PARTY_MALA, PARTY_VELKA_DOPLNOK, PARTY_ALL, CLANS, CLAN_OF,
