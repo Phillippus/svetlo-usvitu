@@ -3821,7 +3821,40 @@ def day_type_label(entry):
     return "🗺️ Bežný deň"
 
 
-def _norm_option(o):
+# Globálne ladenie náročnosti: o koľko sa zvýši „treba hodiť" (DC − atribút) podľa tieru dňa.
+# Zachováva relatívne rozdiely medzi možnosťami aj výhodu vhodnej postavy, len zdvihne podlahu.
+DC_BUMP = {
+    "bezny":           11,
+    "kapitola":        12,
+    "tazsi_nepriatel": 13,
+    "mini_boss":       13,
+    "hlavny_boss":     12,
+    # "skusobny" zámerne chýba → tutoriál ostáva ľahký
+}
+DC_NEED_MIN = 3     # ani vhodná postava nemá auto-úspech (treba aspoň 3+)
+DC_NEED_MAX = 19    # nič nie je úplne nemožné (max kritický hod)
+
+
+def day_tier(entry):
+    """Tier dňa pre ladenie DC: skusobny / bezny / kapitola / tazsi_nepriatel / mini_boss / hlavny_boss."""
+    if entry.get("day", 1) < 1:
+        return "skusobny"
+    m = entry.get("milnik") or {}
+    return m.get("typ", "bezny")
+
+
+def _adjust_dc(o, tier):
+    """Prepočíta DC možnosti: pôvodné „treba hodiť" + bump podľa tieru, oreže na [MIN, MAX]."""
+    bump = DC_BUMP.get(tier)
+    if not bump:
+        return o["dc"]
+    base = stats_dict(o["postava"]).get(o["atribut"], 0) + o.get("bonus", 0)
+    need = o["dc"] - base
+    need = max(DC_NEED_MIN, min(DC_NEED_MAX, need + bump))
+    return base + need
+
+
+def _norm_option(o, tier=None):
     ak = o["atribut"]
     p = PARTY_ALL.get(o["postava"], {"meno": o["postava"], "icon": "❔"})
     return {
@@ -3832,7 +3865,7 @@ def _norm_option(o):
         "atribut_key": ak,
         "atribut_nazov": STAT_NAMES[STAT_KEYS.index(ak)] if ak in STAT_KEYS else ak,
         "bonus": o.get("bonus", 0),
-        "dc": o["dc"],
+        "dc": _adjust_dc(o, tier) if tier else o["dc"],
         "result_success": o["result_success"],
         "result_near": o["result_near"],
         "result_fail": o["result_fail"],
@@ -3882,6 +3915,7 @@ def build_decisions(ds, entry):
     Každý deň má tak 4 rozhodnutia (3 bežné + detské) a k tomu možnosť predmetu alebo kúpy.
     """
     out = []
+    tier = day_tier(entry)
     for i in (1, 2, 3):
         d = entry.get(f"decision{i}")
         if not d:
@@ -3890,9 +3924,9 @@ def build_decisions(ds, entry):
             "id": f"d{i}",
             "typ": d.get("type", "fyzicke"),
             "prompt": d["prompt"],
-            "options": [_norm_option(o) for o in d["options"]],
+            "options": [_norm_option(o, tier) for o in d["options"]],
         })
-    # detské — posledné z rozhodnutí (pred predmetom a nákupom)
+    # detské — posledné z rozhodnutí (pred predmetom a nákupom); DC sa NEzvyšuje (pre najmenších)
     out.append(detske_for_day(ds))
     # nájdené predmety -> predmetové rozhodnutia
     pi = 0
