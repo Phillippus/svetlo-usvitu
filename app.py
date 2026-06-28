@@ -140,27 +140,47 @@ def short_name(cid):
 #  D20 MECHANIKA
 # =========================================================================
 def animated_roll(placeholder, accent):
-    """Animovaný hod d20 — fáza trasu (rýchlo) → spomalenie → finále."""
+    """Animovaný hod d20 — dlhý dramatický efekt: trasu → spomaľovanie → záblesk → finále."""
     final = random.randint(1, 20)
-    # fáza 1 — rýchle striedanie (červená)
-    for _ in range(12):
-        n = random.randint(1, 20)
+
+    def frame(label, lab_color, n, size, color, glow=""):
+        shadow = f"text-shadow:0 0 22px {glow};" if glow else ""
         placeholder.markdown(
-            f"<div style='text-align:center;font-size:2.6rem;color:#f85149'>🎲 {n}</div>",
-            unsafe_allow_html=True)
-        time.sleep(0.05)
-    # fáza 2 — spomalenie (oranžová)
-    for _ in range(3):
-        n = random.randint(1, 20)
-        placeholder.markdown(
-            f"<div style='text-align:center;font-size:2.8rem;color:#d29922'>🎲 {n}</div>",
-            unsafe_allow_html=True)
-        time.sleep(0.18)
-    # finále — zlatá
+            f"<div style='text-align:center;padding:0.3em 0'>"
+            f"<div style='font-size:1.0rem;color:{lab_color};letter-spacing:3px'>{label}</div>"
+            f"<div style='font-size:{size};color:{color};font-weight:900;{shadow}'>🎲 {n}</div>"
+            f"</div>", unsafe_allow_html=True)
+
+    # FÁZA TRESU — ~1.9 s, rýchle striedanie, červená, postupne rastie
+    for i in range(24):
+        size = "2.8rem" if i < 12 else "3.2rem"
+        frame("🎲 HÁDŽEŠ…", "#9aa", random.randint(1, 20), size, "#f85149")
+        time.sleep(0.075)
+
+    # FÁZA SPOMAĽOVANIA — ~1.4 s, červená → oranžová → zlatá, čoraz pomalšie
+    steps = [("#f85149", 0.16), ("#e9692c", 0.21), ("#e0822a", 0.27),
+             ("#d9962a", 0.34), (accent, 0.44)]
+    for color, delay in steps:
+        frame("🎲 SPOMAĽUJE…", "#9aa", random.randint(1, 20), "3.6rem", color)
+        time.sleep(delay)
+
+    # ZÁBLESK — krátke biele bliknutie okolo finálneho čísla
+    for col in ("#ffffff", accent, "#ffffff", accent):
+        frame("", accent, final, "4.8rem", col, glow=accent)
+        time.sleep(0.12)
+
+    # FINÁLE — veľké zlaté číslo + popis
+    crit = ""
+    if final == 20:
+        crit = " — 💥 KRITICKÝ ÚSPECH!"
+    elif final == 1:
+        crit = " — 💀 kritický neúspech"
     placeholder.markdown(
-        f"<div style='text-align:center;font-size:3.2rem;color:{accent};font-weight:bold'>🎲 {final}</div>",
-        unsafe_allow_html=True)
-    time.sleep(0.25)
+        f"<div style='text-align:center;padding:0.3em 0'>"
+        f"<div style='font-size:5.0rem;color:{accent};font-weight:900;text-shadow:0 0 26px {accent}aa'>🎲 {final}</div>"
+        f"<div style='font-size:1.15rem;color:{accent};font-weight:bold'>Hodil/a si: {final}{crit}</div>"
+        f"</div>", unsafe_allow_html=True)
+    time.sleep(0.5)
     return final
 
 
