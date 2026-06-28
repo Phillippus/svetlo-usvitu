@@ -3876,7 +3876,11 @@ def detske_for_day(ds):
 
 
 def build_decisions(ds, entry):
-    """Jednotný zoznam rozhodnutí dňa: bežné (decision1/2/3) + predmet + nákup + detské (posledné)."""
+    """Jednotný zoznam rozhodnutí dňa.
+
+    Poradie: bežné (decision1/2/3) → detské (posledné z rozhodnutí) → 🎁 predmet → 🛒 nákup.
+    Každý deň má tak 4 rozhodnutia (3 bežné + detské) a k tomu možnosť predmetu alebo kúpy.
+    """
     out = []
     for i in (1, 2, 3):
         d = entry.get(f"decision{i}")
@@ -3888,6 +3892,8 @@ def build_decisions(ds, entry):
             "prompt": d["prompt"],
             "options": [_norm_option(o) for o in d["options"]],
         })
+    # detské — posledné z rozhodnutí (pred predmetom a nákupom)
+    out.append(detske_for_day(ds))
     # nájdené predmety -> predmetové rozhodnutia
     pi = 0
     for it in entry.get("items_day", []):
@@ -3898,8 +3904,6 @@ def build_decisions(ds, entry):
     market, polozky = shop_for_day(ds, entry)
     if market:
         out.append({"id": "nakup", "typ": "nakup", "market": market, "polozky": polozky})
-    # detské vždy posledné
-    out.append(detske_for_day(ds))
     return out
 
 
