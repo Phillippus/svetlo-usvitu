@@ -143,7 +143,7 @@ def init_state():
 # =========================================================================
 SAVE_CORE = ["stats", "hp", "gold", "inventory", "milestone_points"]
 PROGRESS_PREFIXES = ("res_", "res2_", "crit1_", "predmet_done_", "nakup_done_",
-                     "levelup20_", "balloons_")
+                     "levelup20_", "balloons_", "zlato_done_")
 
 
 def serialize_state():
@@ -1001,6 +1001,31 @@ def render_milnik(entry):
         st.rerun()
 
 
+def render_zlato_odmena(ds, entry):
+    z = entry.get("zlato_odmena")
+    if not z:
+        return
+    ss = st.session_state
+    osobne = int(z.get("osobne", 0))
+    klanove = int(z.get("klanove", 0))
+    dovod = z.get("dovod", "")
+    donekey = f"zlato_done_{ds}"
+    st.markdown(
+        f"<div class='su-chapter'>💰 <b>Odmena dňa:</b> +{osobne} osobné každej postave · "
+        f"+{klanove} do klanu{(' — <i>' + dovod + '</i>') if dovod else ''}</div>",
+        unsafe_allow_html=True)
+    if ss.get(donekey):
+        st.caption("✅ Odmena dňa už bola pripísaná.")
+        return
+    if st.button(f"💰 Pripísať odmenu dňa (+{osobne} každému, +{klanove} klan)"):
+        for cid in active_ids(entry):
+            ss["gold"][cid] = ss["gold"].get(cid, 0) + osobne
+        ss["gold"]["klan"] = ss["gold"].get("klan", 0) + klanove
+        ss[donekey] = True
+        st.toast(f"Odmena pripísaná: +{osobne} každému, +{klanove} klan", icon="💰")
+        st.rerun()
+
+
 def render_gm_calendar(entry):
     """Typy dní a počty rozhodnutí v tejto + nasledujúcej kapitole — len v GM móde."""
     cur_ch = entry["chapter"]
@@ -1040,7 +1065,7 @@ def render_gm_calendar(entry):
 
 RESET_PREFIXES = ("res_", "res2_", "crit1_", "predmet_done_", "nakup_done_",
                   "buy_", "buyer_", "buyerr_", "pay_", "shopdone_", "give_",
-                  "leave_", "levelup20_", "sc_", "balloons_",
+                  "leave_", "levelup20_", "sc_", "balloons_", "zlato_done_",
                   "d1_", "d2_", "d3_", "res1_", "res3_")
 
 
@@ -1152,6 +1177,7 @@ def main():
             break
 
     st.markdown("---")
+    render_zlato_odmena(ds, entry)
     render_milnik(entry)
 
     if all_done:
