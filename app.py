@@ -4,6 +4,7 @@ Svetlo Úsvitu — prázdninová D&D kampaň (1.7. - 31.8.2026).
 GM skript + interaktívna textová hra + sledovač postáv. Plne offline.
 Všetok herný stav žije v st.session_state. Jazyk: slovenčina.
 """
+import os
 import json
 import math
 import time
@@ -26,6 +27,12 @@ from data import (
     build_decisions, shop_for_day, gm_color_for_day, day_type_label,
     day_tier, TARGET_BEZNE, KIND_LABEL, target_bezne,
 )
+
+try:
+    from streamlit_local_storage import LocalStorage
+    _LS_OK = True
+except Exception:
+    _LS_OK = False
 
 st.set_page_config(page_title="Svetlo Úsvitu", page_icon="🗡️", layout="centered")
 
@@ -718,22 +725,35 @@ def render_sidebar(entry, accent):
         st.caption("Prázdninová kampaň · 1.7. – 31.8.2026")
 
         with st.expander("💾 Uloženie / načítanie hry", expanded=False):
-            st.caption("Stiahni si súbor s postupom a uschovaj ho (mail, telefón). "
-                       "Keď budeš chcieť pokračovať — aj na inom zariadení — nahraj ho späť. "
-                       "⚠️ Postup sa inak po zatvorení/uspaní appky stratí.")
+            if _LS_OK:
+                st.caption("✅ Postup sa automaticky ukladá v tomto prehliadači "
+                           "(prežije obnovenie stránky aj uspanie appky). Na prenos medzi "
+                           "zariadeniami použi súbor nižšie.")
+            else:
+                st.caption("⚠️ Postup sa po zatvorení/uspaní appky stratí — priebežne si ho "
+                           "ukladaj do súboru nižšie.")
             st.download_button(
-                "💾 Uložiť hru (stiahnuť súbor)", data=serialize_state(),
+                "💾 Uložiť do súboru (záloha / prenos)", data=serialize_state(),
                 file_name=f"svetlo-usvitu_{datetime.date.today().isoformat()}.json",
                 mime="application/json", use_container_width=True)
-            up = st.file_uploader("📂 Načítať hru (nahraj súbor)", type=["json"], key="load_file")
+            up = st.file_uploader("📂 Načítať zo súboru", type=["json"], key="load_file")
             if up is not None and ss.get("_loaded_id") != up.file_id:
                 try:
                     load_state(up.getvalue().decode("utf-8"))
                     ss["_loaded_id"] = up.file_id
+                    ss["_ls_last"] = None   # premietne sa aj do auto-uloženia
                     st.success("✅ Hra načítaná — postup obnovený.")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Súbor sa nepodarilo načítať: {e}")
+            if st.button("🗑️ Nová hra (vymazať postup)", use_container_width=True):
+                for k in (SAVE_CORE
+                          + [k for k in list(ss) if isinstance(k, str) and k.startswith(PROGRESS_PREFIXES)]
+                          + [k for k in list(ss) if isinstance(k, str) and k.startswith("goldw_")]):
+                    ss.pop(k, None)
+                ss["_ls_last"] = None
+                ss.pop("_loaded_id", None)
+                st.rerun()
 
         st.markdown(f"### 🌳 {CLANS['mala']['nazov']}")
         for p in PARTY_MALA:
@@ -879,6 +899,30 @@ def reset_day(ds):
 def main():
     init_state()
 
+    # Automatické obnovenie postupu z localStorage prehliadača (rovnaké zariadenie).
+    # SU_DISABLE_LS vypne localStorage (pre headless testy — komponent vyžaduje prehliadač).
+    localS = LocalStorage() if (_LS_OK and not os.environ.get("SU_DISABLE_LS")) else None
+    if localS is not None and not st.session_state.get("_ls_restored"):
+        st.session_state["_ls_tries"] = st.session_state.get("_ls_tries", 0) + 1
+        try:
+            saved = localS.getItem("su_save")
+        except Exception:
+            saved = None
+        if saved and saved not in ("null", ""):
+            try:
+                load_state(saved)
+            except Exception:
+                pass
+            st.session_state["_ls_restored"] = True
+            st.session_state["_ls_last"] = None
+            st.rerun()
+        elif st.session_state["_ls_tries"] >= 4:
+            st.session_state["_ls_restored"] = True   # nič uložené / nedostupné
+        else:
+            # daj komponentu v prehliadači šancu načítať localStorage a odpovedať
+            time.sleep(0.18)
+            st.rerun()
+
     today = datetime.date.today()
     default = today if MIN_DATE <= today <= MAX_DATE else MIN_DATE
 
@@ -968,6 +1012,16 @@ def main():
             st.caption(f"➡️ Zajtra: deň {nxt['day']} — {nxt['title']}")
         else:
             st.success("🎉 Koniec kampane! Svetlo Úsvitu sa vrátilo do sveta.")
+
+    # Automatické uloženie postupu do localStorage (pri každej zmene stavu)
+    if localS is not None and st.session_state.get("_ls_restored"):
+        cur = serialize_state()
+        if st.session_state.get("_ls_last") != cur:
+            try:
+                localS.setItem("su_save", cur, key="su_set")
+            except Exception:
+                pass
+            st.session_state["_ls_last"] = cur
 
     st.markdown("---")
     st.caption("GM skript pre rodičov · Klan Železného Dubu & Klan Zlatého Slnka · Eldorea 2026")
