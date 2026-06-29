@@ -1013,12 +1013,15 @@ def main():
         else:
             st.success("🎉 Koniec kampane! Svetlo Úsvitu sa vrátilo do sveta.")
 
-    # Automatické uloženie postupu do localStorage (pri každej zmene stavu)
+    # Automatické uloženie postupu do localStorage (pri každej zmene stavu).
+    # Pozor: streamlit-local-storage zapíše len pri ZMENE key komponentu, preto
+    # používame rotujúci kľúč — inak by sa uložil len prvý stav za reláciu.
     if localS is not None and st.session_state.get("_ls_restored"):
         cur = serialize_state()
         if st.session_state.get("_ls_last") != cur:
+            st.session_state["_ls_seq"] = st.session_state.get("_ls_seq", 0) + 1
             try:
-                localS.setItem("su_save", cur, key="su_set")
+                localS.setItem("su_save", cur, key=f"su_set_{st.session_state['_ls_seq']}")
             except Exception:
                 pass
             st.session_state["_ls_last"] = cur
