@@ -23,6 +23,7 @@ from data import (
     DC_SCALE, MILESTONE_POINTS, MILESTONE_LABELS, REGEN_RULES, ZISK_OSOBNE_PODIEL,
     WORLD_INTRO, GROUP_SCHEDULE,
     build_decisions, shop_for_day, gm_color_for_day, day_type_label,
+    day_tier, TARGET_BEZNE, KIND_LABEL,
 )
 
 st.set_page_config(page_title="Svetlo Úsvitu", page_icon="🗡️", layout="centered")
@@ -763,23 +764,26 @@ def render_milnik(entry):
 
 
 def render_gm_calendar(entry):
-    """Zoznam farebne označených dní (boss/mini-boss/silnejší) — len v GM móde."""
+    """Typy dní a počty rozhodnutí v tejto + nasledujúcej kapitole — len v GM móde."""
     cur_ch = entry["chapter"]
     rows = []
     for ds, e in sorted(CAMPAIGN.items()):
-        col = gm_color_for_day(e)
-        if col and e["chapter"] in (cur_ch, cur_ch + 1):
-            d = datetime.date.fromisoformat(ds)
-            m = e.get("milnik", {})
-            rows.append(f"{GM_DOT[col]} **Deň {e['day']}** ({d.strftime('%d.%m.')}) — "
-                        f"{m.get('popis', GM_DOT_LABEL[col])}")
-    with st.expander("🔒 GM kalendár — farby dní (táto + nasledujúca kapitola)", expanded=False):
-        st.caption("🔴 Boss · 🟠 Mini-boss · 🟡 Silnejší nepriateľ — len pre GM, hráčom skryté.")
-        if rows:
-            for r in rows:
-                st.markdown(r)
-        else:
-            st.markdown("V tejto a nasledujúcej kapitole nie sú vyznačené žiadne bossy.")
+        if e["chapter"] not in (cur_ch, cur_ch + 1) or e["day"] < 1:
+            continue
+        tier = day_tier(e)
+        decs = build_decisions(ds, e)
+        bezne = sum(1 for d in decs if d["typ"] not in ("predmet", "nakup", "detske"))
+        target = TARGET_BEZNE.get(tier, 4)
+        mark = "✅" if bezne >= target else f"⚠️ {bezne}/{target}"
+        d = datetime.date.fromisoformat(ds)
+        rows.append(f"{KIND_LABEL.get(tier, '')} · **D{e['day']}** {d.strftime('%d.%m.')} — "
+                    f"{e['title']} · {bezne} bežných {mark}")
+    with st.expander("🔒 GM kalendár — typy dní a počty rozhodnutí (táto + nasledujúca kapitola)",
+                     expanded=False):
+        st.caption("Cieľ bežných rozhodnutí: 🌿 Pokojný 3 · 🗺️ Bežný 4 · ⚡ Rušný 6 · "
+                   "🟡 Ťažší 7 · 🟠 Mini-boss 8 · 🔴 Boss 9 (+ detské). Len pre GM.")
+        for r in rows:
+            st.markdown(r)
 
 
 RESET_PREFIXES = ("res_", "res2_", "crit1_", "predmet_done_", "nakup_done_",

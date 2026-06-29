@@ -3806,25 +3806,15 @@ def gm_color_for_day(entry):
 
 def day_type_label(entry):
     """Stručný typ dňa pre badge."""
-    if entry.get("day", 1) < 1:
-        return "🌱 Skúšobný"
-    m = entry.get("milnik") or {}
-    t = m.get("typ")
-    if t == "hlavny_boss":
-        return "🔴 Boss"
-    if t == "mini_boss":
-        return "🟠 Mini-boss"
-    if t == "tazsi_nepriatel":
-        return "🟡 Silnejší nepriateľ"
-    if entry.get("group") == "velka":
-        return "🎉 Veľká družina"
-    return "🗺️ Bežný deň"
+    return KIND_LABEL.get(day_tier(entry), "🗺️ Bežný deň")
 
 
 # Globálne ladenie náročnosti: o koľko sa zvýši „treba hodiť" (DC − atribút) podľa tieru dňa.
 # Zachováva relatívne rozdiely medzi možnosťami aj výhodu vhodnej postavy, len zdvihne podlahu.
 DC_BUMP = {
+    "pokojny":         11,
     "bezny":           11,
+    "rusny":           11,
     "kapitola":        12,
     "tazsi_nepriatel": 13,
     "mini_boss":       13,
@@ -3835,15 +3825,51 @@ DC_NEED_MIN = 3     # ani vhodná postava nemá auto-úspech (treba aspoň 3+)
 DC_NEED_MAX = 19    # nič nie je úplne nemožné (max kritický hod)
 
 # Cieľové „treba hodiť" pre EXTRA rozhodnutia (DC sa odvodí od atribútu postavy → vždy férové)
-EXTRA_TARGET = {"tazsi_nepriatel": 10, "mini_boss": 14, "hlavny_boss": 17}
+EXTRA_TARGET = {"pokojny": 9, "bezny": 10, "rusny": 11,
+                "tazsi_nepriatel": 11, "mini_boss": 14, "hlavny_boss": 17}
+
+
+# Klasifikácia normálnych dní (pokojný / bežný / rušný), kľúč = číslo dňa.
+# Boss/mini-boss/ťažší dni sa určujú z míľnika (nie sú tu). Deň 0 = skúšobný.
+DAY_KIND = {
+    1: "bezny", 2: "bezny", 4: "pokojny", 6: "bezny", 7: "rusny", 8: "pokojny", 9: "bezny",
+    10: "bezny", 12: "bezny", 13: "bezny", 15: "bezny", 16: "pokojny", 17: "pokojny",
+    18: "rusny", 19: "rusny", 23: "rusny", 24: "pokojny", 25: "pokojny", 26: "pokojny",
+    28: "bezny", 29: "pokojny", 31: "bezny", 32: "bezny", 33: "pokojny", 34: "pokojny",
+    35: "bezny", 36: "pokojny", 37: "bezny", 39: "bezny", 43: "pokojny", 44: "pokojny",
+    45: "bezny", 47: "rusny", 51: "pokojny", 52: "pokojny", 54: "bezny", 58: "bezny",
+    62: "pokojny",
+}
+
+# Tiery, ktoré majú prednosť pred DAY_KIND (z míľnika dňa)
+TIER_TYPES = {"hlavny_boss", "mini_boss", "tazsi_nepriatel"}
+
+# Cieľový počet BEŽNÝCH rozhodnutí (A/B/C) na deň podľa typu. Detské sa pripočíta (+1).
+TARGET_BEZNE = {
+    "skusobny": 3, "pokojny": 3, "bezny": 4, "rusny": 6,
+    "tazsi_nepriatel": 7, "mini_boss": 8, "hlavny_boss": 9,
+}
+
+# Štítky typov dní pre badge / GM kalendár
+KIND_LABEL = {
+    "skusobny": "🌱 Skúšobný", "pokojny": "🌿 Pokojný deň", "bezny": "🗺️ Bežný deň",
+    "rusny": "⚡ Rušný deň", "tazsi_nepriatel": "🟡 Silnejší nepriateľ",
+    "mini_boss": "🟠 Mini-boss", "hlavny_boss": "🔴 Boss",
+}
 
 
 def day_tier(entry):
-    """Tier dňa pre ladenie DC: skusobny / bezny / kapitola / tazsi_nepriatel / mini_boss / hlavny_boss."""
+    """Typ dňa: skusobny / pokojny / bezny / rusny / tazsi_nepriatel / mini_boss / hlavny_boss.
+
+    Boss/mini-boss/ťažší majú prednosť (z míľnika), inak sa berie z DAY_KIND.
+    """
     if entry.get("day", 1) < 1:
         return "skusobny"
     m = entry.get("milnik") or {}
-    return m.get("typ", "bezny")
+    t = m.get("typ")
+    if t in TIER_TYPES:
+        return t
+    return DAY_KIND.get(entry["day"], "bezny")
 
 
 def _adjust_dc(o, tier):
@@ -3939,7 +3965,63 @@ def _xd(prompt, typ, *opts):
 
 
 EXTRA_DECISIONS = {
-    # ---------- ŤAŽŠÍ NEPRIATELIA (+1) ----------
+    # ========== KAPITOLA I — normálne dni (bežný +1, rušný +3) ==========
+    "2026-07-01": [  # Hmla nad Tichým Dolom (bežný +1)
+        _xd("Hmla zhustla tak, že nevidno na krok. Ako sa v nej zorientujete?", "prieskumne",
+            _xo("A) Elf sa orientuje po stopách a hmate", "elf", "obratnost", 13,
+                "Elfský krok ich bezpečne prevedie hmlou.", "Na chvíľu stratia smer, no nájdu ho späť.", "V hmle zablúdia až k potoku."),
+            _xo("B) Kúzelník zažne svetelné kúzlo", "kuzelnik", "magia", 14,
+                "Guľa svetla prereže hmlu — cesta je jasná.", "Svetlo presvieti len pár krokov.", "Hustá hmla svetlo pohltí."),
+            _xo("C) Vedma sa spoľahne na cit pre smer", "vedma", "mudrost", 13,
+                "Vnútorný kompas ju nesklame.", "Smer cíti len nejasne.", "Hmla jej zmätie zmysly."))],
+    "2026-07-02": [  # Posol s čiernym perom (bežný +1)
+        _xd("Havran sa vracia a krúži nad vežou — akoby chcel niečo ukázať. Ako ho budete nasledovať?", "prieskumne",
+            _xo("A) Elf sleduje jeho let bez prestania", "elf", "obratnost", 13,
+                "Vystopuje havrana presne k jeho úkrytu.", "Stratí ho z očí, no nájde perie na zemi.", "Havran sa vznesie privysoko a zmizne."),
+            _xo("B) Goblin uhádne, kam mieri", "goblin", "stastie", 13,
+                "Goblinské šťastie — trafí presne tam, kde havran pristál.", "Uhádne smer zhruba.", "Pošle ich nesprávnou cestou."),
+            _xo("C) Vedma pochopí jeho znamenia", "vedma", "mudrost", 13,
+                "Z havranovho letu vyčíta jasnú správu.", "Znamenia sú hmlisté, no čosi tuší.", "Havranov vzkaz jej uniká."))],
+    "2026-07-06": [  # Útržok mapy (bežný +1)
+        _xd("Útržok mapy je roztrhnutý a atrament vyblednutý. Ako doplníte chýbajúcu časť?", "takticke",
+            _xo("A) Kúzelník dokreslí mapu podľa logiky", "kuzelnik", "intelekt", 14,
+                "Premyslene doplní chýbajúce cesty — mapa dáva zmysel.", "Doplní časť, zvyšok ostáva neistý.", "Domyslené cesty vedú do slepej uličky."),
+            _xo("B) Elf spozná krajinu z pamäti", "elf", "mudrost", 13,
+                "Spozná každý kopec — chýbajúca časť je zrazu jasná.", "Spozná hlavné body, detaily chýbajú.", "Krajina sa zmenila a pamäť klame."),
+            _xo("C) Vedma zviditeľní vyblednutý atrament", "vedma", "magia", 13,
+                "Atrament pod kliatbou opäť zažiari — mapa je celá.", "Zviditeľní len časť čiar.", "Starý atrament sa rozplynie nadobro."))],
+    "2026-07-07": [  # Rada starších (rušný +3)
+        _xd("Rada starších sa háda o ďalšom postupe. Ako ich zjednotíte?", "sociale",
+            _xo("A) Vedma prehovorí s autoritou veštice", "vedma", "charizma", 13,
+                "Jej slová radu utíšia a zjednotia.", "Časť rady súhlasí, zvyšok reptá.", "Rada jej veštbám neverí."),
+            _xo("B) Bojovník dodá rade odhodlanie", "bojovnik", "charizma", 13,
+                "Jeho pevné slovo dodá všetkým odvahu.", "Pomôže, no pochybnosti ostávajú.", "Reč vyznie príliš tvrdo a rada sa urazí."),
+            _xo("C) Najmladší ich odzbrojí úsmevom", "medvedik", "charizma", 12,
+                "Detský úsmev roztopí všetky spory — rada sa zhodne.", "Úsmev pomôže len načas.", "Hádka prehluší aj smiech.", 2)),
+        _xd("Jeden zo starších tají, čo videl v hmle. Ako z neho dostanete pravdu?", "sociale",
+            _xo("A) Vedma vycíti, kde klame", "vedma", "mudrost", 13,
+                "Prekukne jeho lož — starý prizná, čo videl.", "Vycíti napätie, no nie celú pravdu.", "Starý sa zatvrdí a mlčí."),
+            _xo("B) Goblin z neho nenápadne vyzvedá", "goblin", "stastie", 13,
+                "Goblin ho rozhovorí pri jedle — pravda vyjde najavo.", "Dozvie sa polovicu príbehu.", "Starý ho prehliadne a stíchne."),
+            _xo("C) Kúzelník ho privedie logickou otázkou", "kuzelnik", "intelekt", 14,
+                "Bystrá otázka starého usvedčí — povie všetko.", "Starý sa zapletie, no priznanie odkladá.", "Otázka ho len nahnevá.")),
+        _xd("Rada žiada dôkaz o hrozbe. Čo jej predložíte?", "prieskumne",
+            _xo("A) Elf prinesie stopu z okraja dediny", "elf", "obratnost", 13,
+                "Prinesie čierne pierko aj odtlačok — rada onemie.", "Prinesie len časť dôkazu.", "Stopa sa cestou stratí."),
+            _xo("B) Vedma ukáže víziu z vešteckej gule", "vedma", "magia", 13,
+                "Vízia hrozby presvedčí aj tých najtvrdohlavejších.", "Vízia je nejasná, no zaváži.", "Guľa ostane temná a nemá."),
+            _xo("C) Kúzelník vysvetlí význam rún", "kuzelnik", "intelekt", 14,
+                "Preklad rún rade odhalí Morgrathovo meno.", "Vysvetlí časť, zvyšok je dohad.", "Runy si vyloží nesprávne."))],
+    "2026-07-09": [  # Rázcestie (bežný +1)
+        _xd("Na rázcestí treba zvoliť cestu na juh. Ako sa rozhodnete správne?", "takticke",
+            _xo("A) Elf prečíta krajinu pred sebou", "elf", "mudrost", 13,
+                "Z tvaru kopcov bezpečne určí pravú cestu.", "Vyberie cestu, no s istou pochybnosťou.", "Krajina ho zvedie na bočný chodník."),
+            _xo("B) Kúzelník to vypočíta podľa mapy", "kuzelnik", "intelekt", 14,
+                "Presný výpočet — južná cesta je jasná.", "Výpočet sedí zhruba.", "Mapa je nepresná a výpočet zlyhá."),
+            _xo("C) Bojovník vedie družinu rozhodne", "bojovnik", "charizma", 13,
+                "Rozhodný krok dodá všetkým istotu — idú správne.", "Vedie odhodlane, no trochu váha.", "Unáhlené rozhodnutie ich predĺži cestu."))],
+
+    # ---------- ŤAŽŠÍ NEPRIATELIA (+1; na ťažších dňoch ďalšie rozhodnutia nižšie) ----------
     "2026-07-03": [  # Tŕňový strážca veže
         _xd("Tŕňový strážca ožíva a chytá družinu popínavými výhonkami. Ako sa vyslobodíte?", "fyzicke",
             _xo("A) Bojovník presekne výhonky mečom Úsvit", "bojovnik", "sila", 27,
@@ -3947,7 +4029,28 @@ EXTRA_DECISIONS = {
             _xo("B) Elf odstrelí korene strážcu", "elf", "obratnost", 27,
                 "Presné šípy pretnú korene, strážca sa zrúti.", "Šíp zasiahne, no strážca sa rýchlo hojí.", "Šípy sa míňajú v hustom poraste."),
             _xo("C) Vedma vyšle kliatbu vädnutia", "vedma", "magia", 26,
-                "Tŕnie na dotyk kliatby zožltne a uschne.", "Časť tŕnia zvädne, zvyšok drží.", "Kliatba skĺzne po kôre bez účinku."))],
+                "Tŕnie na dotyk kliatby zožltne a uschne.", "Časť tŕnia zvädne, zvyšok drží.", "Kliatba skĺzne po kôre bez účinku.")),
+        _xd("Vo veži je tma a vlhko. Ako sa dostanete hore k relikvii?", "prieskumne",
+            _xo("A) Elf vyšplhá po vlhkej stene", "elf", "obratnost", 22,
+                "Tichý elfský šplh — je hore skôr než ostatní.", "Šmykne sa, no zachytí sa rímsy.", "Stena je príliš klzká a spadne späť."),
+            _xo("B) Bojovník vylomí zavalené schody", "bojovnik", "sila", 23,
+                "Pevné schody odhalí jediným úderom.", "Schody povolia napoly.", "Trámy sa zrútia a cestu zavalia."),
+            _xo("C) Kúzelník si posvieti a nadnesie družinu", "kuzelnik", "magia", 23,
+                "Svetlo a levitácia — vznesú sa rovno hore.", "Kúzlo vydrží len kúsok cesty.", "Kúzlo zhasne v polovici.")),
+        _xd("Zo stien sa sype tŕnie a ožívajú korene v chodbe. Ako prejdete?", "fyzicke",
+            _xo("A) Bojovník preseká cestu mečom Úsvit", "bojovnik", "sila", 23,
+                "Žiariaci meč tŕnie spáli — cesta je voľná.", "Preseká väčšinu, jeden výhonok ho škrabne.", "Meč sa zasekne v húštine."),
+            _xo("B) Elf prekľučkuje medzi koreňmi", "elf", "obratnost", 22,
+                "Mrštne sa prepletie bez škrabnutia.", "Prejde, no roztrhne si plášť.", "Koreň ho zachytí za nohu."),
+            _xo("C) Vedma uspí korene kliatbou spánku", "vedma", "magia", 23,
+                "Korene ochabnú a znehybnia.", "Časť koreňov zaspí, zvyšok sa mrví.", "Kliatba ich naopak podráždi.")),
+        _xd("Na vrchu veže stráži relikviu posledný, najväčší výhonok strážcu. Ako ho zdoláte?", "fyzicke",
+            _xo("A) Bojovník zasadí rozhodujúci úder", "bojovnik", "sila", 24,
+                "Jediný úder a výhonok sa rozpadá na prach.", "Úder ho zoslabí, výhonok cúvne.", "Výhonok úder odrazí kôrou."),
+            _xo("B) Elf zacieli na koreň výhonku", "elf", "obratnost", 23,
+                "Šíp pretne koreň — strážca uschne.", "Šíp koreň naštrbí.", "Výhonok sa stiahne a šíp minie."),
+            _xo("C) Kúzelník ho spáli arcanovým ohňom", "kuzelnik", "magia", 24,
+                "Plameň výhonok obráti na popol.", "Oheň ho ožiari, no výhonok tlie ďalej.", "Vlhké drevo ohňu odolá."))],
     "2026-07-05": [  # Tlupa goblinov pri salaši
         _xd("Goblini sa rozpŕchli okolo salaša a snažia sa ukradnúť ovce. Ako ich zaženiete?", "takticke",
             _xo("A) Bojovník sa postaví medzi nich a stádo", "bojovnik", "sila", 27,
@@ -3955,7 +4058,28 @@ EXTRA_DECISIONS = {
             _xo("B) Elf ich rozohná streľbou ponad hlavy", "elf", "obratnost", 26,
                 "Sprška šípov ich rozpráši na všetky strany.", "Väčšina ujde, jeden sa skrýva v sene.", "Goblini sa kryjú za ovce a držia sa."),
             _xo("C) Goblin ich prekecá ich vlastnou rečou", "goblin", "charizma", 27,
-                "Náš Goblin ich presvedčí, že salaš je prekliaty — ujdú s krikom.", "Pár uverí, ostatní váhajú.", "Prekuknú ho a vysmejú sa mu."))],
+                "Náš Goblin ich presvedčí, že salaš je prekliaty — ujdú s krikom.", "Pár uverí, ostatní váhajú.", "Prekuknú ho a vysmejú sa mu.")),
+        _xd("Goblini sa stiahli do stodoly a zabarikádovali sa. Ako ich vytlačíte?", "takticke",
+            _xo("A) Bojovník vyrazí dvere stodoly", "bojovnik", "sila", 23,
+                "Dvere padnú jedným kopom — goblini sa rozpŕchnu.", "Dvere povolia napoly.", "Barikáda vydrží prvý nápor."),
+            _xo("B) Elf ich vyženie cez strešný otvor", "elf", "obratnost", 22,
+                "Pár šípov do slamy ich vyženie von rovno do pasce.", "Časť goblinov vybehne, zvyšok sa skrýva.", "Goblini sa zaryjú hlbšie do sena."),
+            _xo("C) Goblin im vyjedná ústup za hrsť lesklých kamienkov", "goblin", "charizma", 23,
+                "Náš Goblin ich podplatí — odídu spokojne.", "Časť prijme úplatok, zvyšok váha.", "Pohádajú sa o korisť a ostanú.")),
+        _xd("Veľký goblin-vodca sa postaví na odpor s hrdzavým mečom. Ako ho zložíte?", "fyzicke",
+            _xo("A) Bojovník ho premôže v priamom súboji", "bojovnik", "sila", 24,
+                "Pár úderov a vodca padá do sena.", "Súboj je tuhý, no Bojovník vyhráva.", "Vodca je silnejší, než vyzeral."),
+            _xo("B) Elf mu znehybní nohy šípmi", "elf", "obratnost", 23,
+                "Šípy mu prišpendlia nohavice — vodca sa vzdá.", "Jeden šíp ho spomalí.", "Vodca uskočí a šípy minú."),
+            _xo("C) Vedma ho zmätie tieňovou kliatbou", "vedma", "magia", 23,
+                "Vodca sa v zmätku rozbehne preč od stáda.", "Kliatba ho na chvíľu omráči.", "Vodca kliatbe odolá.")),
+        _xd("Po boji ostali vystrašené ovce roztratené po stráni. Ako ich pozbierate?", "prirodne",
+            _xo("A) Najmladší ovce láskavo privábi", "medvedik", "charizma", 21,
+                "Ovce sa za ním poslušne zoženú do stáda.", "Privábi väčšinu, pár sa pasie ďalej.", "Ovce sa rozutekajú za motýľom.", 2),
+            _xo("B) Elf ich tíško obkľúči a naženie", "elf", "obratnost", 22,
+                "Obratným pohybom ich naženie späť k salašu.", "Väčšinu naženie, jedna mu unikne.", "Ovce sa splašia a rozbehnú."),
+            _xo("C) Goblin ich naženie šťastnou náhodou", "goblin", "stastie", 22,
+                "Zakopne, spustí lavínu šišiek a ovce samé pribehnú.", "Naženie polovicu stáda.", "Vyplaší ovce ešte viac."))],
     "2026-07-11": [  # Zradná roklina
         _xd("Po prekonaní mosta sa pod nohami zosúva zradný okraj rokliny. Ako prejdete bezpečne?", "fyzicke",
             _xo("A) Elf natiahne lano cez najužšie miesto", "elf", "obratnost", 26,
