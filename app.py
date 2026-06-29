@@ -23,7 +23,7 @@ from data import (
     DC_SCALE, MILESTONE_POINTS, MILESTONE_LABELS, REGEN_RULES, ZISK_OSOBNE_PODIEL,
     WORLD_INTRO, GROUP_SCHEDULE,
     build_decisions, shop_for_day, gm_color_for_day, day_type_label,
-    day_tier, TARGET_BEZNE, KIND_LABEL,
+    day_tier, TARGET_BEZNE, KIND_LABEL, target_bezne,
 )
 
 st.set_page_config(page_title="Svetlo Úsvitu", page_icon="🗡️", layout="centered")
@@ -48,6 +48,12 @@ TYPE_BADGE = {
 
 GM_DOT = {"red": "🔴", "orange": "🟠", "yellow": "🟡"}
 GM_DOT_LABEL = {"red": "Boss", "orange": "Mini-boss", "yellow": "Silnejší nepriateľ"}
+
+# Farby typov dní pre GM kalendár
+KIND_COLOR = {
+    "skusobny": "#4f9d9d", "pokojny": "#3fb950", "bezny": "#3a7ca5", "rusny": "#d29922",
+    "tazsi_nepriatel": "#d4a017", "mini_boss": "#e0822a", "hlavny_boss": "#f85149",
+}
 
 
 # =========================================================================
@@ -773,17 +779,20 @@ def render_gm_calendar(entry):
         tier = day_tier(e)
         decs = build_decisions(ds, e)
         bezne = sum(1 for d in decs if d["typ"] not in ("predmet", "nakup", "detske"))
-        target = TARGET_BEZNE.get(tier, 4)
+        target = target_bezne(e)
         mark = "✅" if bezne >= target else f"⚠️ {bezne}/{target}"
         d = datetime.date.fromisoformat(ds)
-        rows.append(f"{KIND_LABEL.get(tier, '')} · **D{e['day']}** {d.strftime('%d.%m.')} — "
-                    f"{e['title']} · {bezne} bežných {mark}")
+        col = KIND_COLOR.get(tier, "#888")
+        rows.append(
+            f"<div style='border-left:4px solid {col};background:{col}1f;padding:3px 9px;"
+            f"margin:3px 0;border-radius:5px;font-size:0.86rem'>"
+            f"{KIND_LABEL.get(tier, '')} · <b>D{e['day']}</b> {d.strftime('%d.%m.')} — "
+            f"{e['title']} · {bezne}/{target} {mark}</div>")
     with st.expander("🔒 GM kalendár — typy dní a počty rozhodnutí (táto + nasledujúca kapitola)",
                      expanded=False):
-        st.caption("Cieľ bežných rozhodnutí: 🌿 Pokojný 3 · 🗺️ Bežný 4 · ⚡ Rušný 6 · "
+        st.caption("Cieľ bežných rozhodnutí: 🌿 Pokojný 3 · 🗺️ Bežný 4–5 · ⚡ Rušný 6 · "
                    "🟡 Ťažší 7 · 🟠 Mini-boss 8 · 🔴 Boss 9 (+ detské). Len pre GM.")
-        for r in rows:
-            st.markdown(r)
+        st.markdown("".join(rows), unsafe_allow_html=True)
 
 
 RESET_PREFIXES = ("res_", "res2_", "crit1_", "predmet_done_", "nakup_done_",

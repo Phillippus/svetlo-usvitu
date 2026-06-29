@@ -3850,6 +3850,14 @@ TARGET_BEZNE = {
     "tazsi_nepriatel": 7, "mini_boss": 8, "hlavny_boss": 9,
 }
 
+# Dejovo bohatšie bežné dni s vyšším cieľom (5 bežných namiesto 4), kľúč = číslo dňa.
+TARGET_OVERRIDE = {1: 5, 10: 5, 13: 5, 15: 5, 37: 5, 54: 5, 58: 5}
+
+
+def target_bezne(entry):
+    """Cieľový počet bežných rozhodnutí pre deň (rešpektuje override)."""
+    return TARGET_OVERRIDE.get(entry["day"], TARGET_BEZNE[day_tier(entry)])
+
 # Štítky typov dní pre badge / GM kalendár
 KIND_LABEL = {
     "skusobny": "🌱 Skúšobný", "pokojny": "🌿 Pokojný deň", "bezny": "🗺️ Bežný deň",
@@ -5075,6 +5083,66 @@ EXTRA_DECISIONS_VI = {
                 "V detských dlaniach Svetlo žiari najjasnejšie.", "Svetlo blikne, no ožije.", "Svetlo je priťažké.", 2))],
 }
 
+# ===== Piate rozhodnutie pre dejovo bohatšie bežné dni (TARGET_OVERRIDE) =====
+EXTRA_DECISIONS_5 = {
+    "2026-07-01": [  # D1 Hmla nad Tichým Dolom
+        _xd("Z hmly sa ozve zvláštny, neznámy zvuk. Ako zistíte, čo to bolo?", "prieskumne",
+            _xo("A) Elf sa zaňho ticho vydá po sluchu", "elf", "obratnost", 13,
+                "Nájde len plašiace sa srny — zatiaľ žiadna hrozba.", "Zvuk vystopuje len zhruba.", "Hmla zvuk skreslí a zavedie ho."),
+            _xo("B) Vedma vycíti, či za zvukom je mágia", "vedma", "magia", 13,
+                "Cíti slabú stopu temnej mágie — treba byť ostražití.", "Cíti čosi nejasné.", "Hmla jej zmysly zahmlí."),
+            _xo("C) Bojovník sa postaví smerom k zvuku", "bojovnik", "sila", 13,
+                "Pevný postoj zvuk odoženie — nech to bolo čokoľvek.", "Zvuk utíchne, no nevie sa čím bol.", "Niečo sa mihne a zmizne v hmle."))],
+    "2026-07-10": [  # D10 Hovoriaca líška
+        _xd("Líška vás vedie skratkou, no cesta sa vetví na tri smery. Ktorým pôjdete?", "takticke",
+            _xo("A) Elf prečíta, ktorý chodník je schodný", "elf", "mudrost", 13,
+                "Vyberie cestu, čo vedie rovno k cieľu.", "Cesta je schodná, no kľukatá.", "Chodník sa stratí v podraste."),
+            _xo("B) Vedma sa spoľahne na vnútorný hlas", "vedma", "mudrost", 13,
+                "Intuícia ju nesklame — pravá cesta je jasná.", "Smer cíti len nejasne.", "Vnútorný hlas mlčí."),
+            _xo("C) Goblin si vyberie cestu šťastnou kockou", "goblin", "stastie", 13,
+                "Kocka ukáže správny smer — Goblin žiari.", "Kocka váha, no cesta vyjde.", "Kocka ich pošle nesprávne."))],
+    "2026-07-13": [  # D13 Búrka a jaskyňa
+        _xd("Na stenách jaskyne sú staré nástenné maľby. Čo z nich vyčítate?", "tajomne",
+            _xo("A) Kúzelník rozlúšti starý príbeh malieb", "kuzelnik", "intelekt", 14,
+                "Maľby rozprávajú o prvom porazení Morgratha — cenné vodítko.", "Pochopí časť príbehu.", "Maľby sú príliš zvetrané."),
+            _xo("B) Vedma vycíti dávnu mágiu v maľbách", "vedma", "mudrost", 13,
+                "Cíti, že maľby skrývajú miesto úlomku.", "Tuší tajomstvo, no nejasne.", "Mágia malieb mlčí."),
+            _xo("C) Elf si všimne skrytý detail v rohu", "elf", "obratnost", 13,
+                "Objaví ukrytú mapku k ďalšiemu úlomku.", "Všimne si len časť detailu.", "Detail prehliadne."))],
+    "2026-07-15": [  # D15 Háj strážneho ducha
+        _xd("Duch hája žiada dôkaz čistých úmyslov družiny. Ako mu ho dáte?", "sociale",
+            _xo("A) Vedma prehovorí k duchu jazykom prírody", "vedma", "mudrost", 13,
+                "Duch jej slovám uverí a požehná cestu.", "Duch váha, no napokon pristúpi.", "Duch jej nedôveruje."),
+            _xo("B) Najmladší duchovi venuje úprimný úsmev", "medvedik", "charizma", 12,
+                "Čistota detského srdca ducha presvedčí.", "Duch sa obmäkčí len trochu.", "Duch ostane nedôverčivý.", 2),
+            _xo("C) Kúzelník duchovi ponúkne dar vedomostí", "kuzelnik", "intelekt", 14,
+                "Stará runa ako dar — duch ich prijme za priateľov.", "Dar ducha poteší len sčasti.", "Dar duchu nič nehovorí."))],
+    "2026-08-06": [  # D37 Žiariaca púšť
+        _xd("V rozpálenom piesku sa rýchlo míňa voda. Ako zaistíte zásoby?", "prirodne",
+            _xo("A) Vedma vycíti podzemný prameň", "vedma", "mudrost", 13,
+                "Pod dunou nájde čistú vodu — zásoby sú zaistené.", "Nájde len trochu vlhka.", "Prameň je vyschnutý."),
+            _xo("B) Elf objaví ukrytú oázu", "elf", "obratnost", 13,
+                "Z výšky duny zazrie palmy oázy.", "Oáza je ďaleko, no dosiahnuteľná.", "To, čo videl, bol len fatamorgána."),
+            _xo("C) Goblin vyhrabe vodu šťastnou náhodou", "goblin", "stastie", 13,
+                "Kope naslepo a natrafí na vodu!", "Vyhrabe vlhký piesok.", "Vyhrabe len ďalší piesok."))],
+    "2026-08-23": [  # D54 Bývalý sluha tieňa
+        _xd("Sluha prezradí slabinu pevnosti. Ako overíte, že to nie je pasca?", "takticke",
+            _xo("A) Vedma overí pravdivosť veštbou", "vedma", "mudrost", 13,
+                "Vízia potvrdí — slabina je skutočná.", "Vízia je nejasná, no nádejná.", "Vízia varuje pred pascou."),
+            _xo("B) Kúzelník logicky preverí sluhove tvrdenia", "kuzelnik", "intelekt", 14,
+                "Detaily sedia — slabine sa dá veriť.", "Časť tvrdení potvrdí.", "Tvrdenia si protirečia."),
+            _xo("C) Elf nenápadne overí slabinu zblízka", "elf", "obratnost", 13,
+                "Prieskumom potvrdí, že slabina existuje.", "Overí len časť.", "Cesta k slabine je strážená."))],
+    "2026-08-27": [  # D58 Pred vnútornou svätyňou
+        _xd("Vo svätyni vládne hrobové ticho a tlak temnoty. Ako sa pripravíte na to, čo príde?", "sociale",
+            _xo("A) Bojovník dodá družine poslednú odvahu", "bojovnik", "charizma", 13,
+                "Jeho slová každého naplnia odhodlaním.", "Odvaha kolíše, no drží.", "Tlak temnoty slová prehluší."),
+            _xo("B) Vedma celú družinu uvedie do pokoja", "vedma", "mudrost", 13,
+                "Pod jej vedením sa mysle vyjasnia a stíšia.", "Pokoj sa dostaví len čiastočne.", "Temnota pokoj naruší."),
+            _xo("C) Najmladší pripomenie, prečo sa oplatí bojovať", "medvedik", "charizma", 12,
+                "Jeho nevinná nádej posilní celú družinu.", "Nádej poteší časť družiny.", "Strach prehluší aj nádej.", 2))],
+}
+
 
 def build_decisions(ds, entry):
     """Jednotný zoznam rozhodnutí dňa.
@@ -5097,7 +5165,8 @@ def build_decisions(ds, entry):
         })
     # extra rozhodnutia pre ťažšie dni (DC odvodené od atribútu postavy podľa tieru)
     xi = 4
-    for d in EXTRA_DECISIONS.get(ds, []) + EXTRA_DECISIONS_VI.get(ds, []):
+    for d in (EXTRA_DECISIONS.get(ds, []) + EXTRA_DECISIONS_VI.get(ds, [])
+              + EXTRA_DECISIONS_5.get(ds, [])):
         out.append({
             "id": f"d{xi}",
             "typ": d.get("type", "fyzicke"),
