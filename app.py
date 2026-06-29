@@ -4,6 +4,7 @@ Svetlo Úsvitu — prázdninová D&D kampaň (1.7. - 31.8.2026).
 GM skript + interaktívna textová hra + sledovač postáv. Plne offline.
 Všetok herný stav žije v st.session_state. Jazyk: slovenčina.
 """
+import json
 import math
 import time
 import random
@@ -127,6 +128,44 @@ def init_state():
         ss["inventory"] = {cid: [] for cid in STATS}
     if "milestone_points" not in ss:
         ss["milestone_points"] = {cid: 0 for cid in STATS}
+
+
+# =========================================================================
+#  UKLADANIE / NAČÍTANIE POSTUPU (JSON súbor — offline, bez DB)
+# =========================================================================
+SAVE_CORE = ["stats", "hp", "gold", "inventory", "milestone_points"]
+PROGRESS_PREFIXES = ("res_", "res2_", "crit1_", "predmet_done_", "nakup_done_",
+                     "levelup20_", "balloons_")
+
+
+def serialize_state():
+    ss = st.session_state
+    core = {k: ss.get(k) for k in SAVE_CORE}
+    progress = {k: ss[k] for k in ss
+                if isinstance(k, str) and k.startswith(PROGRESS_PREFIXES)}
+    payload = {
+        "app": "svetlo-usvitu", "version": 1,
+        "saved_at": datetime.datetime.now().isoformat(timespec="seconds"),
+        "core": core, "progress": progress,
+    }
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+def load_state(raw):
+    obj = json.loads(raw)
+    ss = st.session_state
+    core = obj.get("core", {})
+    for k in SAVE_CORE:
+        if core.get(k) is not None:
+            ss[k] = core[k]
+    # nahraď progress kľúče uloženými
+    for k in [k for k in ss if isinstance(k, str) and k.startswith(PROGRESS_PREFIXES)]:
+        ss.pop(k, None)
+    for k, v in obj.get("progress", {}).items():
+        ss[k] = v
+    # vynúť synchronizáciu zlatých widgetov s načítanými hodnotami
+    for k in [k for k in ss if isinstance(k, str) and k.startswith("goldw_set_")]:
+        ss.pop(k, None)
 
 
 def active_party(entry):
@@ -677,6 +716,24 @@ def render_sidebar(entry, accent):
     with st.sidebar:
         st.title("🗡️ Svetlo Úsvitu")
         st.caption("Prázdninová kampaň · 1.7. – 31.8.2026")
+
+        with st.expander("💾 Uloženie / načítanie hry", expanded=False):
+            st.caption("Stiahni si súbor s postupom a uschovaj ho (mail, telefón). "
+                       "Keď budeš chcieť pokračovať — aj na inom zariadení — nahraj ho späť. "
+                       "⚠️ Postup sa inak po zatvorení/uspaní appky stratí.")
+            st.download_button(
+                "💾 Uložiť hru (stiahnuť súbor)", data=serialize_state(),
+                file_name=f"svetlo-usvitu_{datetime.date.today().isoformat()}.json",
+                mime="application/json", use_container_width=True)
+            up = st.file_uploader("📂 Načítať hru (nahraj súbor)", type=["json"], key="load_file")
+            if up is not None and ss.get("_loaded_id") != up.file_id:
+                try:
+                    load_state(up.getvalue().decode("utf-8"))
+                    ss["_loaded_id"] = up.file_id
+                    st.success("✅ Hra načítaná — postup obnovený.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Súbor sa nepodarilo načítať: {e}")
 
         st.markdown(f"### 🌳 {CLANS['mala']['nazov']}")
         for p in PARTY_MALA:
