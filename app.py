@@ -26,6 +26,7 @@ from data import (
     WORLD_INTRO, GROUP_SCHEDULE,
     build_decisions, shop_for_day, gm_color_for_day, day_type_label,
     day_tier, TARGET_BEZNE, KIND_LABEL, target_bezne,
+    normalize_item, item_allowed_for,
 )
 
 try:
@@ -165,6 +166,10 @@ def load_state(raw):
     for k in SAVE_CORE:
         if core.get(k) is not None:
             ss[k] = core[k]
+    # kompatibilita: staré uloženia mali inventár ako reťazce → preveď na objekty
+    for cid, items in ss.get("inventory", {}).items():
+        ss["inventory"][cid] = [it if isinstance(it, dict) else normalize_item({"nazov": str(it)})
+                                for it in items]
     # nahraď progress kľúče uloženými
     for k in [k for k in ss if isinstance(k, str) and k.startswith(PROGRESS_PREFIXES)]:
         ss.pop(k, None)
@@ -241,11 +246,28 @@ def _atr_key(opt):
     return opt.get("atribut_key") or opt.get("atribut")
 
 
-def evaluate(opt, roll, cid):
+def item_attr_bonus(cid, akey, is_combat):
+    """(suma, detaily) bonusov z predmetov v inventári pre atribút a kontext (boj/stále)."""
+    total = 0
+    detail = []
+    for it in st.session_state["inventory"].get(cid, []):
+        if not isinstance(it, dict):
+            continue
+        for m in it.get("mod", []):
+            if m.get("atribut") != akey:
+                continue
+            if m.get("kedy") == "vzdy" or (m.get("kedy") == "boj" and is_combat):
+                total += m["hodnota"]
+                detail.append((it.get("nazov", "?"), m["hodnota"], m.get("kedy")))
+    return total, detail
+
+
+def evaluate(opt, roll, cid, is_combat=False):
     akey = _atr_key(opt)
     atr = st.session_state["stats"][cid].get(akey, 0)
     bonus = opt.get("bonus", 0)
-    total = roll + atr + bonus
+    item_b, item_detail = item_attr_bonus(cid, akey, is_combat)
+    total = roll + atr + bonus + item_b
     diff = total - opt["dc"]
     if total >= opt["dc"]:
         outcome = "success"
@@ -255,8 +277,9 @@ def evaluate(opt, roll, cid):
         outcome = "fail"
     return {
         "idx": None, "postava": cid, "atribut": akey,
-        "roll": roll, "atr": atr, "bonus": bonus, "total": total,
-        "dc": opt["dc"], "diff": diff, "outcome": outcome,
+        "roll": roll, "atr": atr, "bonus": bonus,
+        "item_bonus": item_b, "item_detail": item_detail,
+        "total": total, "dc": opt["dc"], "diff": diff, "outcome": outcome,
     }
 
 
@@ -276,23 +299,35 @@ def atr_name(akey):
     return STAT_NAMES[STAT_KEYS.index(akey)] if akey in STAT_KEYS else akey
 
 
+def _signed(val, label):
+    znak = "+" if val >= 0 else "−"
+    return f" {znak} {abs(val)} ({label})"
+
+
 def render_calc(res):
-    znak = "+" if res["bonus"] >= 0 else "−"
-    st.markdown(
-        f"`{res['roll']} (hod) + {res['atr']} ({atr_name(res['atribut'])}) "
-        f"{znak} {abs(res['bonus'])} (bonus) = {res['total']}`  vs  **DC {res['dc']}**"
-    )
+    line = f"{res['roll']} (hod) + {res['atr']} ({atr_name(res['atribut'])})"
+    if res.get("bonus"):
+        line += _signed(res["bonus"], "situácia")
+    if res.get("item_bonus"):
+        line += _signed(res["item_bonus"], "výbava")
+    line += f" = {res['total']}"
+    st.markdown(f"`{line}`  vs  **DC {res['dc']}**")
+    if res.get("item_detail"):
+        chips = " · ".join(f"{nm} {'+' if v >= 0 else '−'}{abs(v)}"
+                           f"{' ⚔️' if k == 'boj' else ''}" for nm, v, k in res["item_detail"])
+        st.caption(f"🎒 Z výbavy: {chips}")
 
 
-def render_option_panel(opt, accent):
-    """Detailný rozpis: postava, aktuálny atribút, bonus, DC, koľko treba hodiť."""
+def render_option_panel(opt, accent, is_combat=False):
+    """Detailný rozpis: postava, atribút, situačný bonus, bonusy z výbavy, DC, koľko treba hodiť."""
     ss = st.session_state
     pid = opt["postava_id"]
     akey = opt["atribut_key"]
     emoji = STAT_LABELS[STAT_KEYS.index(akey)] if akey in STAT_KEYS else "•"
     atr = ss["stats"][pid].get(akey, 0)
     bonus = opt["bonus"]
-    total = atr + bonus
+    item_b, item_detail = item_attr_bonus(pid, akey, is_combat)
+    total = atr + bonus + item_b
     dc = opt["dc"]
     need = dc - total
     if need <= 1:
@@ -301,12 +336,21 @@ def render_option_panel(opt, accent):
         need_txt = f"treba hodiť <b>{need}+</b>"
     else:
         need_txt = "<b>len kritická 20</b> (+ šťastie)"
-    bonus_html = (f"<br>&nbsp;&nbsp;&nbsp;<span style='color:#9aa'>+ {bonus} bonus z výbavy/situácie</span>"
-                  f"<br>= <b>{total}</b> celkový základ") if bonus else ""
+
+    extra = ""
+    if bonus:
+        extra += f"<br>&nbsp;&nbsp;&nbsp;<span style='color:#9aa'>{'+' if bonus >= 0 else '−'} {abs(bonus)} situačný bonus</span>"
+    for nm, v, k in item_detail:
+        tag = " ⚔️v boji" if k == "boj" else ""
+        extra += (f"<br>&nbsp;&nbsp;&nbsp;<span style='color:#9aa'>"
+                  f"{'+' if v >= 0 else '−'} {abs(v)} {nm}{tag}</span>")
+    if bonus or item_b:
+        extra += f"<br>= <b>{total}</b> celkový základ"
+
     html = (f"<div class='su-opt' style='border-color:{accent}55'>"
             f"<b>{opt['label']}</b><br>"
             f"👤 {opt['postava_ikona']} {opt['postava_nazov']}<br>"
-            f"{emoji} {opt['atribut_nazov']}: <b>{atr}</b> (aktuálna){bonus_html}<br>"
+            f"{emoji} {opt['atribut_nazov']}: <b>{atr}</b> (aktuálna){extra}<br>"
             f"🎯 DC {dc} · 📊 d20 + {total} ≥ {dc} → {need_txt}</div>")
     st.markdown(html, unsafe_allow_html=True)
 
@@ -339,17 +383,19 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
     reskey = f"res_{ds}_{dec['id']}"
     badge = TYPE_BADGE.get(dec["typ"], "")
 
+    is_combat = dec["typ"] == "fyzicke"
+
     st.markdown(f"#### {badge} · Rozhodnutie {n}")
     st.markdown(f"**{dec['prompt']}**")
 
     if reskey not in ss:
         for idx, opt in enumerate(dec["options"]):
-            render_option_panel(opt, accent)
+            render_option_panel(opt, accent, is_combat)
             if st.button(f"🎲 {opt['postava_ikona']} {opt['postava_nazov']} — hodiť kockou",
                          key=f"btn_{ds}_{dec['id']}_{idx}"):
                 ph = st.empty()
                 roll = animated_roll(ph, accent)
-                res = evaluate(opt, roll, opt["postava_id"])
+                res = evaluate(opt, roll, opt["postava_id"], is_combat)
                 res["idx"] = idx
                 ss[reskey] = res
                 st.rerun()
@@ -446,41 +492,75 @@ def render_second_chance(n, ds, dec, accent, entry):
     if st.button("🎲 Hodiť druhú šancu", key=f"sc_btn_{ds}_{dec['id']}"):
         ph = st.empty()
         roll = animated_roll(ph, accent)
-        r = evaluate({"atribut": atr, "bonus": 0, "dc": new_dc}, roll, pid)
+        r = evaluate({"atribut": atr, "bonus": 0, "dc": new_dc}, roll, pid,
+                     dec["typ"] == "fyzicke")
         ss[res2key] = r
         st.rerun()
 
 
+def mods_summary(item):
+    """Textový súhrn efektov predmetu na atribúty (s označením v boji/stále)."""
+    parts = []
+    for m in item.get("mod", []):
+        nm = STAT_NAMES[STAT_KEYS.index(m["atribut"])] if m["atribut"] in STAT_KEYS else m["atribut"]
+        tag = " <span style='color:#d4a017'>(v boji)</span>" if m.get("kedy") == "boj" else ""
+        parts.append(f"{'+' if m['hodnota'] >= 0 else '−'}{abs(m['hodnota'])} {nm}{tag}")
+    return ", ".join(parts)
+
+
+def render_item_box(item, gm=False, raw=None):
+    """Vykreslí predmet (názov, výhody, nevýhody, efekty na atribúty, záhada, GM)."""
+    jed = " · <span style='color:#d29922'>jednorazový</span>" if item.get("jednorazovy") else ""
+    extra = ""
+    ms = mods_summary(item)
+    if ms:
+        extra += f"<br>🎒 <b>Efekt:</b> {ms}"
+    zahada = item.get("zahada")
+    if not zahada and not item.get("mod") and not item.get("jednorazovy"):
+        # spomienkové/príbehové predmety bez mechaniky → náznak budúceho využitia
+        zahada = "Čas ukáže jeho význam…"
+    if zahada:
+        extra += f"<br>🌀 <i>{zahada}</i>"
+    html = (f"<div class='su-item'><b>{item.get('ikona', '')} {item['nazov']}</b>{jed}<br>"
+            f"✨ {item.get('vyhody') or '—'}<br>"
+            f"⚠️ {item.get('nevyhody') or '—'}{extra}</div>")
+    st.markdown(html, unsafe_allow_html=True)
+    if gm and (raw or {}).get("gm_poznamka"):
+        st.markdown(f"<div class='su-gm'>🔒 GM: {raw['gm_poznamka']}</div>", unsafe_allow_html=True)
+
+
 def render_predmet_decision(n, ds, dec, entry, gm):
     ss = st.session_state
-    it = dec["predmet"]
+    raw = dec["predmet"]
+    item = normalize_item(raw)
     donekey = f"predmet_done_{ds}_{dec['id']}"
 
     st.markdown(f"#### 🎁 · Rozhodnutie {n} — Nájdený predmet")
-    zahada = it.get("zahada")
-    extra = ""
-    if zahada:
-        extra += f"<br>🌀 <i>{zahada}</i>"
-    jed = " · <span style='color:#d29922'>jednorazový</span>" if it.get("jednorazovy") else ""
-    html = (f"<div class='su-item'><b>{it['nazov']}</b>{jed}<br>"
-            f"✨ {it.get('vyhody','—')}<br>"
-            f"⚠️ {it.get('nevyhody','—')}{extra}</div>")
-    st.markdown(html, unsafe_allow_html=True)
-    if gm and it.get("gm_poznamka"):
-        st.markdown(f"<div class='su-gm'>🔒 GM: {it['gm_poznamka']}</div>", unsafe_allow_html=True)
+    render_item_box(item, gm, raw)
+
+    ids = active_ids(entry)
+    eligible = [cid for cid in ids if item_allowed_for(item, cid)]
+    restricted = len(eligible) < len(ids)
+    if restricted:
+        kto = ", ".join(short_name(c) for c in eligible) or "nikto z prítomných"
+        st.caption(f"🔒 Tento predmet môže niesť len: **{kto}**")
 
     if donekey not in ss:
         st.caption("Komu predmet pridelíte?")
-        ids = active_ids(entry)
         cols = st.columns(3)
-        for i, cid in enumerate(ids):
+        any_free = False
+        for i, cid in enumerate(eligible):
             full = len(ss["inventory"][cid]) >= INV_LIMIT
-            lbl = f"{PARTY_ALL[cid]['icon']} {short_name(cid)}" + (" (plný)" if full else "")
+            any_free = any_free or not full
+            lbl = f"{PARTY_ALL[cid]['icon']} {short_name(cid)}" + (" · plný" if full else "")
             if cols[i % 3].button(lbl, key=f"give_{ds}_{dec['id']}_{cid}", disabled=full):
-                ss["inventory"][cid].append(it["nazov"])
+                ss["inventory"][cid].append(item)
                 ss[donekey] = cid
-                st.toast(f"{it['nazov']} → {short_name(cid)}", icon="🎁")
+                st.toast(f"{item['nazov']} → {short_name(cid)}", icon="🎁")
                 st.rerun()
+        if eligible and not any_free:
+            st.warning("Všetci oprávnení majú plný inventár (5/5). Uvoľni miesto v karte postavy "
+                       "(presuň alebo vyhoď predmet) a skús znova.")
         if st.button("🚫 Nechať ležať (nebrať)", key=f"leave_{ds}_{dec['id']}"):
             ss[donekey] = "_none"
             st.rerun()
@@ -492,11 +572,18 @@ def render_predmet_decision(n, ds, dec, entry, gm):
     else:
         st.success(f"Predmet dostal/a {PARTY_ALL[who]['icon']} {PARTY_ALL[who]['meno']}.")
     if st.button(f"↩️ Znova rozhodnutie {n}", key=f"reset_{ds}_{dec['id']}"):
-        if who not in (None, "_none") and it["nazov"] in ss["inventory"].get(who, []):
-            ss["inventory"][who].remove(it["nazov"])
+        if who not in (None, "_none"):
+            inv = ss["inventory"].get(who, [])
+            for j, x in enumerate(inv):
+                if isinstance(x, dict) and x.get("nazov") == item["nazov"]:
+                    inv.pop(j)
+                    break
         ss.pop(donekey, None)
         st.rerun()
     return True
+
+
+SELL_RATIO = 0.5   # predaj vráti polovicu ceny
 
 
 def do_purchase(buyer, sel, total, zdroj, clan_key, ds, did):
@@ -521,9 +608,8 @@ def do_purchase(buyer, sel, total, zdroj, clan_key, ds, did):
         ss["gold"][buyer] -= from_osob
         ss["gold"][clan_key] -= (total - from_osob)
     for p in sel:
-        ss["inventory"][buyer].append(p["nazov"])
-    # odznač vybrané checkboxy
-    for i in range(50):
+        ss["inventory"][buyer].append(normalize_item(p))
+    for i in range(50):                       # odznač vybrané checkboxy
         ss.pop(f"buy_{ds}_{did}_{i}", None)
     return True, f"Kúpené ({total} zl) pre {short_name(buyer)}."
 
@@ -542,35 +628,75 @@ def render_nakup_decision(n, ds, dec, entry):
     buyer = st.selectbox("Kupujúci", ids,
                          format_func=lambda i: f"{PARTY_ALL[i]['icon']} {PARTY_ALL[i]['meno']}",
                          key=f"buyer_{ds}_{did}")
+
     sel = []
     for i, p in enumerate(polozky):
+        if not item_allowed_for(p, buyer):       # obmedz tovar na vhodnú postavu
+            continue
         jed = " · jednorazový" if p.get("jednorazovy") else ""
-        lab = (f"{p.get('ikona', '🛒')} **{p['nazov']}** — ➕ {p['vyhoda']} · ➖ {p['nevyhoda']} · "
-               f"**{p['cena']} zl**{jed}")
+        lab = (f"{p.get('ikona', '🛒')} **{p['nazov']}** — ➕ {p.get('vyhoda', '')} · "
+               f"➖ {p.get('nevyhoda', '')} · **{p['cena']} zl**{jed}")
         if st.checkbox(lab, key=f"buy_{ds}_{did}_{i}"):
             sel.append(p)
+    skryte = [p for p in polozky if not item_allowed_for(p, buyer)]
+    if skryte:
+        st.caption("🔒 Niektoré zbrane sú vhodné pre iné postavy (skryté) — vyber správneho kupujúceho.")
 
     total = sum(p["cena"] for p in sel)
     clan_key = "klan" if CLAN_OF.get(buyer) == "mala" else "klan_slnko"
     osob = ss["gold"][buyer]
     klan = ss["gold"][clan_key]
     klan_nazov = CLANS["mala"]["nazov"] if clan_key == "klan" else CLANS["velka"]["nazov"]
-    st.markdown(f"💰 Osobné ({short_name(buyer)}): **{osob} zl** · 🏦 {klan_nazov}: **{klan} zl** · "
-                f"🧾 Vybrané: **{total} zl**")
+    free = INV_LIMIT - len(ss["inventory"][buyer])
+
     zdroj = st.radio("Zaplatiť z", ["Osobné", "Klanové", "Kombinácia"], horizontal=True,
                      key=f"pay_{ds}_{did}")
+    # prehľad ceny a zostatku po nákupe
+    if zdroj == "Osobné":
+        po_osob, po_klan = osob - total, klan
+    elif zdroj == "Klanové":
+        po_osob, po_klan = osob, klan - total
+    else:
+        from_osob = min(osob, total)
+        po_osob, po_klan = osob - from_osob, klan - (total - from_osob)
+    dost = po_osob >= 0 and po_klan >= 0
+    miesto_ok = len(sel) <= free
+    st.markdown(
+        f"🧾 Vybrané: **{total} zl** ({len(sel)} ks, voľné miesto {free}/{INV_LIMIT})  \n"
+        f"💰 Osobné ({short_name(buyer)}): {osob} → **{po_osob} zl** · "
+        f"🏦 {klan_nazov}: {klan} → **{po_klan} zl**")
+    if sel and not dost:
+        st.warning("Nemáš dosť zlata na tento výber pri zvolenom zdroji.")
+    if sel and not miesto_ok:
+        st.warning(f"Inventár {short_name(buyer)} nemá dosť miesta ({free} voľných).")
 
     cols = st.columns(2)
-    if cols[0].button("✅ Kúpiť vybrané", key=f"buybtn_{ds}_{did}", disabled=(not sel)):
+    can_buy = bool(sel) and dost and miesto_ok
+    if cols[0].button("✅ Kúpiť vybrané", key=f"buybtn_{ds}_{did}", disabled=not can_buy):
         ok, msg = do_purchase(buyer, sel, total, zdroj, clan_key, ds, did)
         if ok:
             st.toast(msg, icon="🛒")
         else:
-            st.session_state[f"buyerr_{ds}_{did}"] = msg
+            ss[f"buyerr_{ds}_{did}"] = msg
         st.rerun()
     if cols[1].button("➡️ Pokračovať (obchod hotový)", key=f"shopdone_{ds}_{did}"):
         ss[donekey] = True
         st.rerun()
+
+    # Predaj / vrátenie predmetu z inventára kupujúceho (vráti polovicu ceny do osobného)
+    inv = ss["inventory"][buyer]
+    sellable = [k for k, it in enumerate(inv) if isinstance(it, dict) and it.get("cena", 0) > 0]
+    if sellable:
+        with st.expander("💱 Predať predmet (vráti pol ceny)"):
+            k = st.selectbox("Predmet", sellable,
+                             format_func=lambda j: f"{inv[j]['nazov']} ({inv[j].get('cena', 0)} zl)",
+                             key=f"sell_{ds}_{did}")
+            vrat = int(inv[k].get("cena", 0) * SELL_RATIO)
+            if st.button(f"💱 Predať za {vrat} zl", key=f"sellbtn_{ds}_{did}"):
+                ss["gold"][buyer] += vrat
+                inv.pop(k)
+                st.toast(f"Predané za {vrat} zl", icon="💱")
+                st.rerun()
 
     err = ss.pop(f"buyerr_{ds}_{did}", None)
     if err:
@@ -691,26 +817,55 @@ def render_char_card(cid, entry, accent):
                 unsafe_allow_html=True)
 
         inv = ss["inventory"][cid]
-        st.markdown(f"**📦 Inventár ({len(inv)}/{INV_LIMIT})**")
+        st.markdown(f"**📦 Inventár ({len(inv)}/{INV_LIMIT})** *(nad rámec štartovacej výbavy)*")
         for i, item in enumerate(list(inv)):
+            name = item["nazov"] if isinstance(item, dict) else str(item)
+            ms = mods_summary(item) if isinstance(item, dict) else ""
             ic = st.columns([5, 1])
-            ic[0].markdown(f"- {item}")
-            if ic[1].button("🗑️", key=f"rm_{cid}_{i}"):
+            eff = f"  \n<span style='font-size:0.74rem;color:#9aa'>{ms}</span>" if ms else ""
+            ic[0].markdown(f"- {name}{eff}", unsafe_allow_html=True)
+            if ic[1].button("✖", key=f"rm_{cid}_{i}", help="Vyhodiť predmet"):
                 inv.pop(i); st.rerun()
 
+        # Presun predmetu k inej (vhodnej) postave — uvoľní miesto
+        if inv:
+            mc = st.columns([4, 4, 2])
+            j = mc[0].selectbox("Presunúť", list(range(len(inv))),
+                                format_func=lambda k: (inv[k]["nazov"] if isinstance(inv[k], dict)
+                                                       else str(inv[k]))[:16],
+                                key=f"mvitem_{cid}", label_visibility="collapsed")
+            sel_item = inv[j]
+            targets = [c for c in active_ids(entry)
+                       if c != cid and item_allowed_for(sel_item, c)
+                       and len(ss["inventory"][c]) < INV_LIMIT]
+            if targets:
+                to = mc[1].selectbox("komu", targets,
+                                     format_func=lambda c: f"{PARTY_ALL[c]['icon']} {short_name(c)}",
+                                     key=f"mvto_{cid}", label_visibility="collapsed")
+                if mc[2].button("↪", key=f"mvbtn_{cid}", help="Presunúť k vybranej postave"):
+                    ss["inventory"][to].append(inv.pop(j))
+                    st.toast("Predmet presunutý", icon="↪️")
+                    st.rerun()
+            else:
+                mc[1].caption("niet vhodného cieľa")
+
         if len(inv) < INV_LIMIT:
-            day_items = [it["nazov"] for it in entry.get("items_day", [])]
-            options = ["— vyber —"] + day_items + ["✏️ vlastný…"]
+            day_raw = entry.get("items_day", [])
+            day_names = [it["nazov"] for it in day_raw]
+            options = ["— vyber —"] + day_names + ["✏️ vlastný…"]
             sel = st.selectbox("Pridať predmet", options, key=f"addsel_{cid}")
             custom = ""
             if sel == "✏️ vlastný…":
                 custom = st.text_input("Názov predmetu", key=f"addtxt_{cid}")
             if st.button("➕ Pridať do inventára", key=f"addbtn_{cid}"):
-                name = custom.strip() if sel == "✏️ vlastný…" else (sel if sel != "— vyber —" else "")
-                if name:
-                    inv.append(name); st.rerun()
+                if sel == "✏️ vlastný…" and custom.strip():
+                    inv.append(normalize_item({"nazov": custom.strip()})); st.rerun()
+                elif sel not in ("— vyber —", "✏️ vlastný…"):
+                    raw = next((it for it in day_raw if it["nazov"] == sel), None)
+                    if raw:
+                        inv.append(normalize_item(raw)); st.rerun()
         else:
-            st.caption("Inventár je plný (max 5).")
+            st.caption("Inventár je plný (max 5) — vyhoď alebo presuň predmet.")
 
 
 # =========================================================================

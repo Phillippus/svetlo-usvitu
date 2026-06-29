@@ -20,6 +20,7 @@ Každá možnosť rozhodnutia:
 
 Vzorec:  hod_d20 + aktuálny_atribút + bonus  >=  DC  -> úspech.
 """
+import re
 
 # =========================================================================
 #  SVET
@@ -5142,6 +5143,75 @@ EXTRA_DECISIONS_5 = {
             _xo("C) Najmladší pripomenie, prečo sa oplatí bojovať", "medvedik", "charizma", 12,
                 "Jeho nevinná nádej posilní celú družinu.", "Nádej poteší časť družiny.", "Strach prehluší aj nádej.", 2))],
 }
+
+
+# =========================================================================
+#  PREDMETY — efekty (mod), normalizácia, oprávnenie postavy
+# =========================================================================
+ATTR_NAME_TO_KEY = {
+    "Sila": "sila", "Obratnosť": "obratnost", "Výdrž": "vydrz", "Intelekt": "intelekt",
+    "Múdrosť": "mudrost", "Mágia": "magia", "Šťastie": "stastie", "Charizma": "charizma",
+}
+_MOD_RE = re.compile(r"([+\-−])\s*(\d+)\s*(" + "|".join(ATTR_NAME_TO_KEY) + r")")
+# náznaky, že bonus platí len v boji (inak „stále")
+_BOJ_HINTS = ("k útoku", "k streľbe", "k boju", "v boji", "zblízka", "úder",
+              "meč", "luk", "dýk", "dyk", "kyjak", "palcát", "kopij", "kosák",
+              "nôž", "nož", "šíp", "kuš", "čepe", "kuša", "sekera", "prak")
+
+
+def parse_mods(text):
+    """Z textu ako „+2 Sila, −1 Obratnosť" vytiahne (atribut, hodnota) páry."""
+    mods = []
+    for sign, num, attr in _MOD_RE.findall(text or ""):
+        val = int(num) * (-1 if sign in ("-", "−") else 1)
+        mods.append({"atribut": ATTR_NAME_TO_KEY[attr], "hodnota": val})
+    return mods
+
+
+def normalize_item(raw):
+    """Zjednotí nájdený/kúpený/legendárny predmet na objekt s efektmi (mod).
+
+    Kedy bonus platí: zbraň (názov/text) → kladné bonusy „boj", postihy „stále";
+    ostatné predmety → „stále". Dá sa prebiť poľom „kedy" v dátach.
+    """
+    if raw is None:
+        return None
+    vyh = raw.get("vyhody") or raw.get("vyhoda") or ""
+    nev = raw.get("nevyhody") or raw.get("nevyhoda") or ""
+    mods = raw.get("mod")
+    if mods is None:
+        blob = (raw.get("nazov", "") + " " + vyh + " " + nev).lower()
+        is_weapon = any(h in blob for h in _BOJ_HINTS)
+        explicit = raw.get("kedy")
+        mods = []
+        for m in parse_mods(vyh) + parse_mods(nev):
+            if explicit:
+                m["kedy"] = explicit
+            elif is_weapon and m["hodnota"] > 0:
+                m["kedy"] = "boj"
+            else:
+                m["kedy"] = "vzdy"
+            mods.append(m)
+    return {
+        "nazov": raw.get("nazov", "?"),
+        "ikona": raw.get("ikona", ""),
+        "vyhody": vyh, "nevyhody": nev,
+        "pre_koho": raw.get("pre_koho", "vsetci"),
+        "mod": mods,
+        "zahada": raw.get("zahada"),
+        "jednorazovy": raw.get("jednorazovy", False),
+        "cena": raw.get("cena", 0),
+    }
+
+
+def item_allowed_for(item, cid):
+    """Smie daná postava niesť tento predmet (pole pre_koho)?"""
+    pk = item.get("pre_koho", "vsetci") if isinstance(item, dict) else "vsetci"
+    if pk in (None, "vsetci", "vsetky", "any", ""):
+        return True
+    if isinstance(pk, str):
+        return cid == pk
+    return cid in pk
 
 
 def build_decisions(ds, entry):
