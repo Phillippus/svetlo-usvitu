@@ -3834,6 +3834,9 @@ DC_BUMP = {
 DC_NEED_MIN = 3     # ani vhodná postava nemá auto-úspech (treba aspoň 3+)
 DC_NEED_MAX = 19    # nič nie je úplne nemožné (max kritický hod)
 
+# Cieľové „treba hodiť" pre EXTRA rozhodnutia (DC sa odvodí od atribútu postavy → vždy férové)
+EXTRA_TARGET = {"tazsi_nepriatel": 10, "mini_boss": 14, "hlavny_boss": 17}
+
 
 def day_tier(entry):
     """Tier dňa pre ladenie DC: skusobny / bezny / kapitola / tazsi_nepriatel / mini_boss / hlavny_boss."""
@@ -3854,9 +3857,23 @@ def _adjust_dc(o, tier):
     return base + need
 
 
-def _norm_option(o, tier=None):
+def _rebase_dc(o, tier):
+    """EXTRA rozhodnutia: DC = atribút postavy + cieľ podľa tieru (+ malý jitter), orezané."""
+    base = stats_dict(o["postava"]).get(o["atribut"], 0) + o.get("bonus", 0)
+    jitter = (o["dc"] % 3) - 1                 # -1..+1, aby A/B/C neboli identické
+    need = max(DC_NEED_MIN, min(DC_NEED_MAX, EXTRA_TARGET.get(tier, 12) + jitter))
+    return base + need
+
+
+def _norm_option(o, tier=None, rebase=False):
     ak = o["atribut"]
     p = PARTY_ALL.get(o["postava"], {"meno": o["postava"], "icon": "❔"})
+    if rebase and tier in EXTRA_TARGET:
+        dc = _rebase_dc(o, tier)
+    elif tier:
+        dc = _adjust_dc(o, tier)
+    else:
+        dc = o["dc"]
     return {
         "label": o["label"],
         "postava_id": o["postava"],
@@ -3865,7 +3882,7 @@ def _norm_option(o, tier=None):
         "atribut_key": ak,
         "atribut_nazov": STAT_NAMES[STAT_KEYS.index(ak)] if ak in STAT_KEYS else ak,
         "bonus": o.get("bonus", 0),
-        "dc": _adjust_dc(o, tier) if tier else o["dc"],
+        "dc": dc,
         "result_success": o["result_success"],
         "result_near": o["result_near"],
         "result_fail": o["result_fail"],
@@ -3908,11 +3925,359 @@ def detske_for_day(ds):
     }
 
 
+# =========================================================================
+#  EXTRA ROZHODNUTIA pre ťažších nepriateľov / mini-bossov / bossov
+#  (boss +3, mini-boss +2, ťažší +1). DC sú už finálne (bez ďalšieho bumpu).
+# =========================================================================
+def _xo(label, postava, atribut, dc, succ, near, fail, bonus=0):
+    return {"label": label, "postava": postava, "atribut": atribut, "bonus": bonus, "dc": dc,
+            "result_success": succ, "result_near": near, "result_fail": fail}
+
+
+def _xd(prompt, typ, *opts):
+    return {"prompt": prompt, "type": typ, "options": list(opts)}
+
+
+EXTRA_DECISIONS = {
+    # ---------- ŤAŽŠÍ NEPRIATELIA (+1) ----------
+    "2026-07-03": [  # Tŕňový strážca veže
+        _xd("Tŕňový strážca ožíva a chytá družinu popínavými výhonkami. Ako sa vyslobodíte?", "fyzicke",
+            _xo("A) Bojovník presekne výhonky mečom Úsvit", "bojovnik", "sila", 27,
+                "Meč preťne tŕnie, strážca couvne.", "Pár výhonkov povolí, jeden chytí Bojovníka za nohu.", "Meč sa zasekne v húževnatom tŕní."),
+            _xo("B) Elf odstrelí korene strážcu", "elf", "obratnost", 27,
+                "Presné šípy pretnú korene, strážca sa zrúti.", "Šíp zasiahne, no strážca sa rýchlo hojí.", "Šípy sa míňajú v hustom poraste."),
+            _xo("C) Vedma vyšle kliatbu vädnutia", "vedma", "magia", 26,
+                "Tŕnie na dotyk kliatby zožltne a uschne.", "Časť tŕnia zvädne, zvyšok drží.", "Kliatba skĺzne po kôre bez účinku."))],
+    "2026-07-05": [  # Tlupa goblinov pri salaši
+        _xd("Goblini sa rozpŕchli okolo salaša a snažia sa ukradnúť ovce. Ako ich zaženiete?", "takticke",
+            _xo("A) Bojovník sa postaví medzi nich a stádo", "bojovnik", "sila", 27,
+                "Mohutný postoj goblinov vystraší, ujdú s prázdnymi rukami.", "Zaženie väčšinu, dvaja ešte chňapnú jahňa.", "Goblini ho obídu a stádo sa rozuteká."),
+            _xo("B) Elf ich rozohná streľbou ponad hlavy", "elf", "obratnost", 26,
+                "Sprška šípov ich rozpráši na všetky strany.", "Väčšina ujde, jeden sa skrýva v sene.", "Goblini sa kryjú za ovce a držia sa."),
+            _xo("C) Goblin ich prekecá ich vlastnou rečou", "goblin", "charizma", 27,
+                "Náš Goblin ich presvedčí, že salaš je prekliaty — ujdú s krikom.", "Pár uverí, ostatní váhajú.", "Prekuknú ho a vysmejú sa mu."))],
+    "2026-07-11": [  # Zradná roklina
+        _xd("Po prekonaní mosta sa pod nohami zosúva zradný okraj rokliny. Ako prejdete bezpečne?", "fyzicke",
+            _xo("A) Elf natiahne lano cez najužšie miesto", "elf", "obratnost", 26,
+                "Lano drží, družina sa po ňom rýchlo pretiahne.", "Lano sa šmykne, no všetci prejdú s odretými dlaňami.", "Lano sa nezachytí a spadne do rokliny.", 3),
+            _xo("B) Bojovník prenesie najmladších po jednom", "bojovnik", "sila", 28,
+                "Pevné kroky — všetkých prenesie bez zaváhania.", "Pôda sa drobí, posledný skok je tesný.", "Kameň sa uvoľní a Bojovník sa takmer zrúti."),
+            _xo("C) Kúzelník spevní okraj kúzlom kameňa", "kuzelnik", "magia", 27,
+                "Skala stuhne, cesta je zrazu pevná.", "Kúzlo vydrží len chvíľu — treba sa ponáhľať.", "Kúzlo zlyhá a okraj sa zosype."))],
+    "2026-07-20": [  # Pasce troch komnát (velka)
+        _xd("Prvá komnata sa zamkne a strop sa pomaly spúšťa. Ako ju zdoláte?", "takticke",
+            _xo("A) Obor podoprie strop holými rukami", "obor", "sila", 28,
+                "Obor zadrží strop, kým všetci prebehnú popod neho.", "Strop sa chveje, posledný sa pretiahne tesne.", "Strop je priťažký aj na Obra — treba inú cestu."),
+            _xo("B) Alchymista rozleptá zámok kyselinou", "alchymista", "intelekt", 27,
+                "Kyselina rozožerie mechanizmus, dvere povolia.", "Zámok povolí napoly, treba doraziť silou.", "Kyselina vyprská nabok bez účinku."),
+            _xo("C) Veliteľ nájde skrytú páku taktickým okom", "velitel", "intelekt", 27,
+                "Páka cvakne — strop sa zastaví a zdvihne.", "Nájde páku neskoro, strop je už nízko.", "Páka je falošná pasca — spustí ďalší blok."))],
+    "2026-07-27": [  # Skazený vlk
+        _xd("Skazený vlk s horiacimi očami zaútočí na tábor. Ako ho zastavíte?", "fyzicke",
+            _xo("A) Bojovník ho odrazí štítom a mečom", "bojovnik", "sila", 27,
+                "Úder štítom vlka odhodí, meč ho zaženie do tmy.", "Vlk uhryzne štít, no Bojovník ho zatlačí.", "Vlk je príliš rýchly a preskočí obranu."),
+            _xo("B) Elf mu zasiahne labu šípom", "elf", "obratnost", 27,
+                "Šíp znehybní labu, vlk zaskučí a ustúpi.", "Šíp len škrtne, vlk spomalí.", "Vlk uhne a šíp sa zaryje do zeme."),
+            _xo("C) Vedma rozozná skazu a zruší ju kliatbou", "vedma", "magia", 27,
+                "Kliatba prelomí Morgrathov vplyv — vlk sa upokojí a ujde.", "Skaza zoslabne, vlk zaváha.", "Temná skaza je silnejšia — kliatba sa odrazí."))],
+    "2026-07-30": [  # Morgrathov zved
+        _xd("Tieňový zved sa snaží ujsť s informáciami o družine. Ako ho zastavíte?", "prieskumne",
+            _xo("A) Elf ho odreže streľbou pri úteku", "elf", "obratnost", 27,
+                "Šíp mu zrazí plášť, zved sa rozplynie skôr než utečie.", "Šíp ho spomalí, časť správy si odnesie.", "Zved zmizne v tieni skôr, než stihne vystreliť."),
+            _xo("B) Goblin sa mu nenápadne prikradne za chrbát", "goblin", "obratnost", 26,
+                "Goblin ho prekvapí a zhltne mu odkaz — zved nemá čo odniesť.", "Chytí kus odkazu, zvyšok zvedovi ostane.", "Zved ho začuje a ujde."),
+            _xo("C) Vedma mu vešteckou guľou prekríži cestu", "vedma", "magia", 27,
+                "Vízia mu zatarasí cestu, zved sa zrúti do pasce.", "Vízia ho zmätie, no nájde inú cestu.", "Zved víziu prejde bez zaváhania."))],
+    "2026-08-10": [  # Stráže Aškarovho tábora
+        _xd("Pri tábore stoja ostražité stráže. Ako sa dostanete dnu nepozorovane?", "takticke",
+            _xo("A) Elf ticho zneškodní hliadku z diaľky", "elf", "obratnost", 27,
+                "Tiché šípy uspia hliadku, cesta je voľná.", "Jednu stráž uspí, druhá zaváha.", "Hliadka spustí poplach."),
+            _xo("B) Goblin odláka stráže falošným hlukom", "goblin", "stastie", 26,
+                "Hrkálka v kríkoch odláka stráže preč — družina sa prešmykne.", "Časť stráží sa pohne, jedna ostane.", "Stráže lesť prekuknú."),
+            _xo("C) Vedma zahalí družinu tieňovou bariérou", "vedma", "magia", 28,
+                "Tieň pohltí ich kroky, prejdú ako duchovia.", "Bariéra drží krátko — posledný takmer prezradí.", "Bariéra blikne a stráže ich zbadajú."))],
+    "2026-08-15": [  # Morgrathov prieskumný tieň
+        _xd("Prieskumný tieň krúži nad táborom a hľadá úlomky. Ako ho odoženiete?", "tajomne",
+            _xo("A) Kúzelník ho rozpráši arcanovou explóziou", "kuzelnik", "magia", 28,
+                "Záblesk mágie tieň roztrhá na franforce.", "Tieň sa rozdelí, polovica ujde.", "Tieň sa rozplynie a vyhne sa výbuchu."),
+            _xo("B) Elf ho zasiahne šípom so svätou vodou", "elf", "obratnost", 27,
+                "Posvätený šíp tieň prepáli — zmizne s revom.", "Šíp ho oslabí, no tieň sa stiahne do výšky.", "Tieň sa rozplynie skôr než šíp doletí."),
+            _xo("C) Vedma ho oklame falošnou stopou úlomku", "vedma", "magia", 27,
+                "Tieň sa pustí za falošnou žiarou preč od tábora.", "Tieň zaváha, no čiastočne prekukne lesť.", "Tieň lesť odhalí a priblíži sa."))],
+    "2026-08-18": [  # Tieňoví prepadávači
+        _xd("Z tmy vyrazia tieňoví prepadávači. Ako ubránite havrana a družinu?", "fyzicke",
+            _xo("A) Bojovník ich zoženie do tesnej formácie", "bojovnik", "sila", 27,
+                "Meč Úsvit žiari — prepadávači cúvajú pred svetlom.", "Zatlačí väčšinu, dvaja sa prešmyknú.", "Presila ho na chvíľu obkľúči."),
+            _xo("B) Elf kryje havrana presnou streľbou", "elf", "obratnost", 27,
+                "Šípy zrazia útočníkov skôr, než dosiahnu havrana.", "Havran je v bezpečí, no jeden šíp minie.", "Prepadávač sa dostane k havranovi."),
+            _xo("C) Kúzelník postaví magický štít okolo družiny", "kuzelnik", "magia", 28,
+                "Bariéra odrazí prvý nápor, družina sa preskupí.", "Štít vydrží, no praská pod údermi.", "Štít sa rozbije pri prvom náraze."))],
+    "2026-08-24": [  # Driemajúci tieňoví strážcovia
+        _xd("Pri vonkajších hradbách driemu tieňoví strážcovia. Ako prejdete?", "prieskumne",
+            _xo("A) Goblin sa prešmykne popri nich ako myš", "goblin", "obratnost", 26,
+                "Goblin prekĺzne bez hláska a otvorí bránu zvnútra.", "Takmer prejde, vrznutie jedného strážcu zobudí.", "Stúpi na vetvu a strážcovia sa preberú."),
+            _xo("B) Elf ich obíde po hradbovom rímse", "elf", "obratnost", 27,
+                "Tichý elfský krok — prejde ponad nich nepozorovane.", "Rímsa sa drobí, jeden kamienok spadne.", "Rímsa povolí a strážcovia sa zobudia."),
+            _xo("C) Vedma ich uspí hlbšie tieňovou kliatbou", "vedma", "magia", 27,
+                "Kliatba prehĺbi ich spánok — družina prejde pokojne.", "Spia ďalej, no jeden sa nepokojne mrví.", "Kliatba ich naopak vyburcuje."))],
+
+    # ---------- MINI-BOSSI (+2) ----------
+    "2026-07-14": [  # Runová brána troch skúšok
+        _xd("Prvá runa brány žiada SILU ducha. Ako ju naplníte?", "tajomne",
+            _xo("A) Bojovník vloží do runy odhodlanie", "bojovnik", "charizma", 31,
+                "Runa vzplanie — prvá pečať povolí.", "Runa blikne, treba dôraznejšie sústredenie.", "Runa zhasne a vráti skúšku."),
+            _xo("B) Vedma prečíta runu temným nárečím", "vedma", "magia", 31,
+                "Slová zaznejú správne, runa sa rozžiari.", "Runa reaguje pomaly, časť slov je nezreteľná.", "Runa odmietne temné nárečie."),
+            _xo("C) Kúzelník dešifruje runu z grimoáru", "kuzelnik", "intelekt", 31,
+                "Presný preklad — runa sa otvorí.", "Kúzelník zaváha pri poslednom znaku.", "Runa je zašifrovaná inak, než čakal.")),
+        _xd("Druhá runa žiada JEDNOTU družiny. Ako prejdete?", "sociale",
+            _xo("A) Celá družina položí ruky na bránu naraz", "bojovnik", "charizma", 31,
+                "Spoločný dotyk runu naplní svetlom.", "Jeden zaváha, runa sa rozžiari nerovnomerne.", "Ruky sa rozídu a runa zhasne."),
+            _xo("B) Vedma spojí ich mysle vízijou", "vedma", "mudrost", 31,
+                "Spoločná vízia ich zladí — runa povolí.", "Vízia je hmlistá, jednota nie je úplná.", "Vízia sa rozpadne na samostatné obrazy."),
+            _xo("C) Najmladší rozosmeje napätú družinu", "medvedik", "charizma", 30,
+                "Smiech ich spojí viac než hocijaké kúzlo — runa žiari.", "Úsmev pomôže, no nie všetkých.", "Vtip nevyjde a napätie ostane.", 2))],
+    "2026-07-21": [  # Kamenný strážca chrámu (velka)
+        _xd("Kamenný strážca chrámu sa postaví do cesty. Ako preniknete okolo?", "fyzicke",
+            _xo("A) Obor sa s ním pustí do silového súboja", "obor", "sila", 32,
+                "Obor strážcu prevalí — cesta je voľná.", "Strážca sa zapotácal, no drží sa.", "Kamenná päsť Obra odhodí."),
+            _xo("B) Alchymista naruší kameň kyselinou v spároch", "alchymista", "intelekt", 31,
+                "Kyselina rozleptá kĺby, strážca stuhne.", "Naruší jednu nohu, strážca kríva.", "Kameň je príliš tvrdý aj na kyselinu."),
+            _xo("C) Veliteľ nájde slabé miesto v hrudi sochy", "velitel", "intelekt", 31,
+                "Presný úder do trhliny — strážca sa rozpadne.", "Trafí trhlinu nepresne, socha praská.", "Slabé miesto je inde, než čakal.")),
+        _xd("Strážca sa rúca a chce zavaliť východ. Ako zachránite družinu?", "takticke",
+            _xo("A) Bojovník drží padajúci blok štítom", "bojovnik", "sila", 32,
+                "Štít Železného Dubu zadrží blok, všetci prebehnú.", "Blok ho zatlačí na koleno, posledný stihne tesne.", "Blok je priťažký a zatarasí časť cesty."),
+            _xo("B) Druid pošle havrana ukázať únikovú cestu", "druid", "mudrost", 31,
+                "Havran nájde bočný východ, družina unikne.", "Havran nájde cestu neskoro, je tesno.", "Prach zakryje havranov výhľad."),
+            _xo("C) Náčelník rozkáže ústup v poriadku", "nacelnik", "charizma", 31,
+                "Pokojný rozkaz zabráni panike, všetci von.", "Časť družiny zaváha, no prejdú.", "Zmätok prevládne a cesta sa zúži."))],
+    "2026-08-07": [  # Zrkadlové bludisko
+        _xd("Zrkadlá chrámu vrhajú desiatky falošných obrazov. Ako nájdete pravú cestu?", "tajomne",
+            _xo("A) Kúzelník rozozná pravý odraz mágiou", "kuzelnik", "intelekt", 31,
+                "Pravé zrkadlo zažiari inak — cesta je jasná.", "Zúži výber na dve zrkadlá.", "Falošný lesk ho zvedie."),
+            _xo("B) Elf sleduje, ktorý odraz nekopíruje pohyb", "elf", "obratnost", 31,
+                "Bystré oko odhalí pravý priechod.", "Takmer ho nájde, jeden klam ho pribrzdí.", "Všetky odrazy sa hýbu rovnako — zmätok."),
+            _xo("C) Vedma vešteckou guľou nazrie za zrkadlá", "vedma", "magia", 31,
+                "Guľa ukáže pravú cestu skrz klam.", "Vízia je hmlistá, smer len tuší.", "Zrkadlá odrazia aj víziu.")),
+        _xd("Z najväčšieho zrkadla vystúpi tieňový dvojník. Ako ho porazíte?", "fyzicke",
+            _xo("A) Bojovník udrie tam, kde dvojník váha", "bojovnik", "sila", 32,
+                "Dvojník nemá vlastnú vôľu — úder ho roztriešti.", "Zasiahne ho, no dvojník sa scelí.", "Dvojník jeho úder dokonale zopakuje."),
+            _xo("B) Vedma obráti dvojníka proti sebe kliatbou", "vedma", "magia", 31,
+                "Dvojník sa zrúti pod vlastnou kliatbou.", "Kliatba ho zmätie len na chvíľu.", "Dvojník kliatbu odzrkadlí späť."),
+            _xo("C) Kúzelník rozbije zdrojové zrkadlo", "kuzelnik", "magia", 32,
+                "Zrkadlo praskne — dvojník sa rozplynie.", "Zrkadlo praskne napoly, dvojník slabne.", "Zrkadlo odolá a dvojník zosilnie."))],
+    "2026-08-09": [  # Piesková búrka
+        _xd("Piesková búrka berie výhľad aj dych. Ako sa cez ňu prebijete?", "prirodne",
+            _xo("A) Bojovník razí cestu v čele s plášťom cez tvár", "bojovnik", "vydrz", 31,
+                "Pevné kroky razia chodník, družina ho nasleduje.", "Búrka ho spomalí, no nepustí sa.", "Vietor ho zrazí späť."),
+            _xo("B) Kúzelník rozdelí vietor ochranným kúzlom", "kuzelnik", "magia", 31,
+                "Vietor sa na chvíľu rozostúpi — prejdú.", "Ulička sa otvorí len načas.", "Kúzlo búrku neudrží."),
+            _xo("C) Elf vedie družinu podľa sotva počuteľných zvukov", "elf", "obratnost", 31,
+                "Elfský sluch ich bezpečne prevedie búrkou.", "Stratia smer, no nájdu ho späť.", "Hukot prehluší všetko, zablúdia.")),
+        _xd("V oku búrky striehne pieskový živel. Ako ho upokojíte?", "tajomne",
+            _xo("A) Vedma prečíta v živle Morgrathovu skazu a zruší ju", "vedma", "magia", 31,
+                "Kliatba sa zlomí — piesok klesne na zem.", "Skaza zoslabne, živel sa mrví.", "Živel kliatbu pohltí."),
+            _xo("B) Kúzelník spúta živel runovým kruhom", "kuzelnik", "magia", 32,
+                "Runy uzavrú živel do kruhu, búrka utíchne.", "Kruh drží len časť živla.", "Živel runy rozmetá."),
+            _xo("C) Najmladší naň zazvoní Sivomilovým zvončekom", "medvedik", "stastie", 30,
+                "Čistý tón zvončeka živel prekvapí a rozplynie.", "Zvonček ho zarazí len na chvíľu.", "Hukot zvonček prehluší.", 2))],
+    "2026-08-17": [  # Prvá vlna tieňových tvorov
+        _xd("Prvá vlna tieňových tvorov sa valí na líniu. Ako ju zastavíte?", "fyzicke",
+            _xo("A) Bojovník drží stred línie mečom Úsvit", "bojovnik", "sila", 32,
+                "Žiariaci meč seká tiene — stred drží.", "Línia sa prehne, no nezlomí.", "Presila pretlačí stred."),
+            _xo("B) Elf kropí vlnu šípmi z druhej rady", "elf", "obratnost", 31,
+                "Sprška šípov rednie vlnu skôr, než dorazí.", "Zrazí prvý rad, druhý sa dostane bližšie.", "Šípy dochádzajú v zlej chvíli."),
+            _xo("C) Kúzelník zasiahne vlnu arcanovou explóziou", "kuzelnik", "magia", 32,
+                "Výbuch rozmetá celý predný rad tieňov.", "Výbuch zasiahne polovicu vlny.", "Explózia minie zhluk a vyčerpá ho.")),
+        _xd("Tiene obchádzajú krídlo, kde sú najmladší. Ako ich ochránite?", "takticke",
+            _xo("A) Vedma postaví tieňovú bariéru na krídle", "vedma", "magia", 31,
+                "Bariéra zapečatí krídlo — najmladší sú v bezpečí.", "Bariéra drží, no preliačí sa.", "Bariéra povolí v rohu."),
+            _xo("B) Goblin odláka tiene Záhadným vakom", "goblin", "stastie", 30,
+                "Z vaku vyletí lesklý cveng — tiene sa zaň poženú preč.", "Časť tieňov sa odláka.", "Vak vytiahne niečo nanič."),
+            _xo("C) Bojovník presunie obranu na ohrozené krídlo", "bojovnik", "sila", 32,
+                "Rýchly presun — krídlo je zaštítené včas.", "Stihne to tesne, jeden tieň sa prebije.", "Presun prichádza neskoro."))],
+    "2026-08-19": [  # Obrad spojenia úlomkov
+        _xd("Obrad spojenia úlomkov si žiada sústredenie. Ako ho udržíte stabilný?", "tajomne",
+            _xo("A) Kúzelník drží tok mágie pevnou rukou", "kuzelnik", "magia", 32,
+                "Úlomky do seba zapadajú v dokonalom súzvuku.", "Tok zakolíše, no úlomky držia.", "Mágia sa rozbehne a úlomky sa odpudia."),
+            _xo("B) Vedma chráni obrad pred temným vplyvom", "vedma", "magia", 31,
+                "Žiadny tieň neprenikne — obrad je čistý.", "Jeden závan skazy sa prešmykne.", "Temný vplyv obrad naruší."),
+            _xo("C) Liečiteľka udrží sily družiny počas obradu", "vedma", "mudrost", 31,
+                "Pokojná podpora drží všetkých sústredených.", "Niekto poľaví, obrad sa zachveje.", "Vyčerpanie obrad takmer preruší.")),
+        _xd("Pri spojení sa uvoľní výbuch energie. Kto ho usmerní?", "fyzicke",
+            _xo("A) Bojovník nasmeruje energiu mečom k nebu", "bojovnik", "sila", 32,
+                "Stĺp svetla vytryskne neškodne nahor.", "Časť energie zhorí okolie, no nikomu sa nič nestane.", "Energia ho odhodí a rozprskne sa."),
+            _xo("B) Najmladší pozdvihne spojený úlomok", "medvedik", "stastie", 30,
+                "V detskej dlani sa svetlo upokojí a zažiari mäkko.", "Svetlo blikne silno, no ustáli sa.", "Úlomok je priťažký a svetlo divoko zažiari.", 2),
+            _xo("C) Vedma pohltí prebytok do vešteckej gule", "vedma", "magia", 32,
+                "Guľa nasaje prebytok — energia je skrotená.", "Guľa nasaje časť, zvyšok sa rozplynie.", "Guľa praskne pod náporom."))],
+    "2026-08-22": [  # Skúška tieňových ilúzií
+        _xd("Tieňové ilúzie ukazujú najhoršie strachy družiny. Ako ich preniknete?", "tajomne",
+            _xo("A) Vedma odhalí ilúzie pravým videním", "vedma", "magia", 32,
+                "Ilúzie sa rozplynú pred jej zrakom.", "Väčšina zmizne, jedna sa drží.", "Ilúzia oklame aj ju."),
+            _xo("B) Bojovník prejde strachom napriek všetkému", "bojovnik", "charizma", 31,
+                "Odvaha rozláme ilúziu — je len tieň.", "Strach ho spomalí, no prejde.", "Ilúzia ho na chvíľu ochromí."),
+            _xo("C) Najmladší sa ilúzii vysmeje", "medvedik", "charizma", 30,
+                "Detský smiech ilúziu pripraví o moc — zmizne.", "Ilúzia zaváha pred jeho úsmevom.", "Strach prevládne aj nad smiechom.", 2)),
+        _xd("Z ilúzií sa sformuje falošný Morgrath. Ako ho rozptýlite?", "fyzicke",
+            _xo("A) Kúzelník zasiahne jadro ilúzie kúzlom", "kuzelnik", "magia", 32,
+                "Jadro praskne — falošný Morgrath sa rozsype.", "Ilúzia sa zachveje, no scelí.", "Kúzlo prejde ilúziou bez účinku."),
+            _xo("B) Elf vystrelí do jediného pevného bodu", "elf", "obratnost", 32,
+                "Šíp trafí kotvu ilúzie — celá zmizne.", "Kotva sa pohne, ilúzia bledne.", "Pevný bod sa presunie a šíp minie."),
+            _xo("C) Vedma obráti strach proti ilúzii", "vedma", "magia", 32,
+                "Ilúzia pohltí vlastnú temnotu a zanikne.", "Obráti časť ilúzie, zvyšok drží.", "Ilúzia jej kliatbu vstrebe."))],
+    "2026-08-25": [  # Pasce pevnosti
+        _xd("Chodba pevnosti je popretkávaná mechanickými pascami. Ako ňou prejdete?", "takticke",
+            _xo("A) Elf odhalí a obíde pasce bystrým okom", "elf", "obratnost", 31,
+                "Každú pascu zbadá včas — družina prejde sucho.", "Jednu prehliadne, no stihne varovať.", "Skrytá pasca cvakne pod nohou."),
+            _xo("B) Kúzelník znefunkční pasce magickým dotykom", "kuzelnik", "intelekt", 31,
+                "Dotyk mágie a mechanizmy stuhnú.", "Väčšinu zneškodní, jedna ešte striehne.", "Pasca sa spustí skôr, než ju zastaví."),
+            _xo("C) Goblin pasce poodhaľuje hádzaním kamienkov", "goblin", "stastie", 30,
+                "Kamienky odpália pasce naprázdno — cesta je čistá.", "Väčšina pascí cvakne naprázdno.", "Jedna pasca kamienok prehliadne.")),
+        _xd("Posledná pasca je tieňová — spustí poplach pevnosti. Ako ju obídete?", "tajomne",
+            _xo("A) Vedma utíši tieňový mechanizmus kliatbou", "vedma", "magia", 32,
+                "Tieň stíchne — poplach sa nespustí.", "Mechanizmus zaváha, no takmer cvakne.", "Tieň kliatbe odolá a zapne poplach."),
+            _xo("B) Kúzelník prepóluje magickú runu pasce", "kuzelnik", "intelekt", 32,
+                "Runa sa obráti a pasca sa sama vypne.", "Runa blikne, mechanizmus spomalí.", "Runa sa spustí pri zlom znaku."),
+            _xo("C) Bojovník bleskovo prejde skôr, než zareaguje", "bojovnik", "obratnost", 31,
+                "Bleskové reflexy — prejde skôr, než pasca scvakne.", "Stihne to tesne, poplach len zacvendží.", "Pasca je rýchlejšia a spustí sa."))],
+    "2026-08-28": [  # Morgrathovo pokušenie
+        _xd("Morgrath šepká sľuby moci a pokúša najsilnejších. Kto odolá?", "sociale",
+            _xo("A) Bojovník odmietne moc v mene družiny", "bojovnik", "charizma", 31,
+                "Jeho odhodlanie šepot umlčí.", "Šepot ho na chvíľu zviedne, no spamätá sa.", "Pochybnosť mu na okamih zatemní myseľ."),
+            _xo("B) Vedma rozozná lož v Morgrathových slovách", "vedma", "mudrost", 31,
+                "Prekukne klam — sľuby strácajú moc.", "Časť lži odhalí, zvyšok šepká ďalej.", "Lož je votkaná tak, že ju takmer prijme."),
+            _xo("C) Najmladší jednoducho nerozumie pokušeniu", "medvedik", "charizma", 30,
+                "Nevinnosť pokušenie obíde — Morgrath nemá za čo chytiť.", "Šepot ho zmätie, no nezaujme.", "Strach z hlasu ho rozplače.", 2)),
+        _xd("Pokušenie sa zmení na tieňový tlak na celú družinu. Ako ho zhodíte?", "tajomne",
+            _xo("A) Vedma postaví tieňovú bariéru proti šepotu", "vedma", "magia", 32,
+                "Bariéra utne šepot — mysle sa vyjasnia.", "Šepot preniká škárami, no slabne.", "Tlak bariéru prelomí."),
+            _xo("B) Kúzelník zaženie temnotu svetelným kúzlom", "kuzelnik", "magia", 32,
+                "Svetlo rozoženie tieň aj pokušenie.", "Svetlo zatlačí tieň do kútov.", "Tieň svetlo pohltí."),
+            _xo("C) Družina sa chytí za ruky a šepot prehluší", "bojovnik", "charizma", 31,
+                "Spoločná vôľa Morgrathov hlas umlčí.", "Reťaz rúk drží, no jeden článok sa chveje.", "Pochybnosť reťaz preruší."))],
+
+    # ---------- HLAVNÍ BOSSI (+3) ----------
+    "2026-07-22": [  # Skazený tieň strážcu (velka)
+        _xd("Skazený strážca útočí mohutnou tieňovou pästou. Ako prvý úder odrazíte?", "fyzicke",
+            _xo("A) Obor zachytí päst, kým ostatní ustúpia", "obor", "sila", 35,
+                "Obor päsť zadrží — strážca sa odhalí.", "Náraz ho zatlačí, no udrží sa.", "Päsť Obra odhodí na stenu."),
+            _xo("B) Bojovník odrazí úder štítom Železného Dubu", "bojovnik", "vydrz", 35,
+                "Štít zazvoní, úder skĺzne nabok.", "Štít praská, no vydrží.", "Sila úderu prerazí krytie."),
+            _xo("C) Veliteľ velí úhybný manéver celej skupiny", "velitel", "intelekt", 34,
+                "Skupina sa rozostúpi a päsť seká do prázdna.", "Väčšina uhne, dvaja to nestihnú.", "Manéver je neskoro a úder zasiahne.")),
+        _xd("Strážcovo jadro skazy pulzuje temnou mágiou. Ako ho oslabíte?", "tajomne",
+            _xo("A) Vedma vyšle kliatbu priamo do jadra", "vedma", "magia", 35,
+                "Kliatba prepáli skazu — strážca zavíja.", "Kliatba jadro nahlodá.", "Jadro kliatbu pohltí a zosilnie."),
+            _xo("B) Kúzelník rozbije obal jadra arcanovou explóziou", "kuzelnik", "magia", 35,
+                "Obal praská, jadro je odhalené.", "Obal sa naštrbí.", "Explózia sa od obalu odrazí."),
+            _xo("C) Alchymista naň hodí fľašu so svätou vodou", "alchymista", "obratnost", 34,
+                "Svätá voda zasyčí na skaze — jadro slabne.", "Zasiahne okraj jadra.", "Fľaša sa rozbije nabok.")),
+        _xd("Strážca sa rúti do posledného zúfalého útoku. Ako ho zložíte?", "fyzicke",
+            _xo("A) Bojovník zasadí žiariaci úder mečom Úsvit", "bojovnik", "sila", 35,
+                "Meč preťne skazu — strážca sa rozpadá na prach.", "Úder ho zrazí na kolená.", "Strážca úder odrazí pancierom."),
+            _xo("B) Náčelník vedie spoločný úder oboch klanov", "nacelnik", "charizma", 35,
+                "Spojená sila oboch rodov strážcu zloží.", "Spoločný úder ho takmer dorazí.", "Útok nie je zladený a minie."),
+            _xo("C) Elf zacieli na odhalené jadro skazy", "elf", "obratnost", 35,
+                "Šíp prebodne jadro — strážca zhasne.", "Šíp jadro škrtne.", "Strážca sa otočí a šíp minie cieľ."))],
+    "2026-08-11": [  # Aškarov pobočník (ohnivá skúška III)
+        _xd("Aškarov pobočník sála žiarom a chrlí ohnivé bičov. Ako sa priblížite?", "fyzicke",
+            _xo("A) Bojovník razí cestu cez plamene s krytím", "bojovnik", "vydrz", 35,
+                "Prejde ohňom a dostane sa k pobočníkovi.", "Plamene ho oparia, no nezastavia.", "Ohnivý bič ho zaženie späť."),
+            _xo("B) Elf strieľa šípy namočené v studenej vode", "elf", "obratnost", 35,
+                "Sykavé šípy pobočníka rušia a otravujú.", "Časť šípov sa vyparí v žiare.", "Žiar šípy spáli skôr, než doletia."),
+            _xo("C) Goblin hodí do ohňa hrsť prachu zo Záhadného vaku", "goblin", "stastie", 34,
+                "Z vaku vyletí prach, čo plamene na chvíľu zhasí — cesta je voľná.", "Oheň zoslabne len v časti chodby.", "Z vaku vypadne čosi nanič.")),
+        _xd("Pobočník zapáli celú sálu a berie družine dych. Ako oheň zvládnete?", "prirodne",
+            _xo("A) Kúzelník privolá mrazivý prievan proti žiaru", "kuzelnik", "magia", 35,
+                "Prievan stlmí plamene — dá sa dýchať.", "Prievan pomôže len chvíľu.", "Žiar prievan vysuší."),
+            _xo("B) Vedma postaví tieňovú clonu proti žiaru", "vedma", "magia", 35,
+                "Clona pohltí žiar — družina vydrží.", "Clona drží, no praská v horúčave.", "Žiar clonu prepáli."),
+            _xo("C) Elf vystrelí a otvorí dymový prieduch v strope", "elf", "obratnost", 34,
+                "Prieduch odvedie dym — všetci dýchajú.", "Prieduch je malý, dym redne pomaly.", "Šíp minie a dym hustne.")),
+        _xd("Pobočník sa v plameňoch rúti do finále. Ako ho zložíte?", "fyzicke",
+            _xo("A) Bojovník zasadí rozhodujúci úder mečom Úsvit", "bojovnik", "sila", 35,
+                "Žiariaci meč preťne ohnivého pobočníka.", "Úder ho zrazí, no plamene tlejú.", "Pobočník úder odrazí stenou ohňa."),
+            _xo("B) Kúzelník zhasí jeho ohnivé jadro mrazivým kúzlom", "kuzelnik", "magia", 35,
+                "Mráz uhasí jadro — pobočník stuhne a praskne.", "Jadro zasyčí a zoslabne.", "Oheň mráz pohltí."),
+            _xo("C) Elf prebodne jeho žeravé srdce šípom", "elf", "obratnost", 35,
+                "Šíp prebodne srdce ohňa — pobočník zhasne.", "Šíp žiaru zoslabí.", "Žeravé srdce šíp roztaví."))],
+    "2026-08-26": [  # Tieňový rytier - pobočník brány
+        _xd("Tieňový rytier blokuje bránu ťažkým tieňovým mečom. Ako prejdete jeho obranou?", "fyzicke",
+            _xo("A) Bojovník skríži meče v priamom súboji", "bojovnik", "sila", 35,
+                "Meč Úsvit prežiari tieň — rytier ustupuje.", "Čepele zaiskria, súboj je vyrovnaný.", "Tieňový meč ho odzbrojí na krok."),
+            _xo("B) Vedma vyčíta z pohybu rytiera slabé miesto", "vedma", "mudrost", 34,
+                "Odhalí medzeru — úder prejde gardou.", "Garda sa nakrátko otvorí.", "Rytier medzeru zacelí včas."),
+            _xo("C) Elf strieľa do pohyblivých kĺbov zbroje", "elf", "obratnost", 35,
+                "Šípy v kĺboch rytiera spomalia.", "Jeden kĺb zasiahne, rytier kríva.", "Tieňová zbroj šípy pohltí.")),
+        _xd("Rytier privolá tieňové reťaze, aby spútal družinu. Ako sa oslobodíte?", "tajomne",
+            _xo("A) Vedma pretne reťaze kliatbou rozkladu", "vedma", "magia", 35,
+                "Reťaze sa rozpadnú na dym.", "Polovica reťazí povolí.", "Reťaze kliatbu vstrebú."),
+            _xo("B) Bojovník reťaze roztne mečom Úsvit", "bojovnik", "sila", 35,
+                "Žiariaci meč tieňové reťaze preťne.", "Reťaze sa napnú, no povolia.", "Reťaze ho stiahnu k zemi."),
+            _xo("C) Kúzelník reťaze rozpáli svetelným kúzlom", "kuzelnik", "magia", 34,
+                "Svetlo reťaze spáli — družina je voľná.", "Reťaze zoslabnú a povolia.", "Tieň svetlo udusí.")),
+        _xd("Rytier sa vzdáva brány a útočí naposledy. Ako ho porazíte?", "fyzicke",
+            _xo("A) Bojovník zasadí žiariaci úder do hrude", "bojovnik", "sila", 35,
+                "Meč Úsvit prebodne tieňové srdce — rytier sa rozplynie.", "Úder ho zrazí na kolená.", "Zbroj úder vykryje."),
+            _xo("B) Vedma zruší tieň, ktorý rytiera drží pokope", "vedma", "magia", 35,
+                "Tieň sa rozplynie a zbroj sa zosype prázdna.", "Tieň sa chveje, rytier slabne.", "Tieň drží silnejšie, než čakala."),
+            _xo("C) Elf vystrelí posvätený šíp do priezoru", "elf", "obratnost", 35,
+                "Svätý šíp preletí priezorom — rytier zhasne.", "Šíp škrtne prilbu.", "Rytier hlavu strhne a šíp minie."))],
+    "2026-08-29": [  # Morgrath - prvá fáza (vlny tieňa)
+        _xd("Morgrath posiela prvú vlnu tieňa zo všetkých strán. Ako udržíte líniu?", "fyzicke",
+            _xo("A) Bojovník drží stred so žiariacim mečom", "bojovnik", "sila", 36,
+                "Svetlo meča páli tiene — stred drží pevne.", "Línia sa prehne, no nezlomí.", "Vlna stred na chvíľu pretlačí."),
+            _xo("B) Vedma obkolesí družinu tieňovou bariérou", "vedma", "magia", 36,
+                "Bariéra odrazí prvú vlnu úplne.", "Bariéra praská, no drží.", "Vlna bariéru preliači."),
+            _xo("C) Kúzelník čistí okolie arcanovými explóziami", "kuzelnik", "magia", 36,
+                "Výbuchy rednú vlnu skôr, než dorazí.", "Polovica vlny sa prebije.", "Tiene výbuchy obídu.")),
+        _xd("Spojené Svetlo Úsvitu začína žiariť. Ako ním zatlačíte tieň?", "tajomne",
+            _xo("A) Najmladší pozdvihne Svetlo Úsvitu", "medvedik", "stastie", 35,
+                "Detská dlaň rozžiari svetlo — tieň cúva so revom.", "Svetlo blikne jasne, tieň zaváha.", "Relikvia je priťažká a svetlo blikne neskoro.", 2),
+            _xo("B) Vedma nasmeruje svetlo cez vešteckú guľu", "vedma", "magia", 36,
+                "Guľa zosilní lúč — tieň sa rozpŕcha.", "Lúč zatlačí časť tieňa.", "Tieň lúč obíde."),
+            _xo("C) Celá družina spojí ruky okolo relikvie", "bojovnik", "charizma", 36,
+                "Spoločné svetlo zaplaví sieň — tieň ustupuje.", "Svetlo žiari, no nerovnomerne.", "Reťaz rúk sa rozpojí a svetlo bledne.")),
+        _xd("Morgrath sa stiahne a chrlí tieňový protiúder. Ako ho prečkáte?", "fyzicke",
+            _xo("A) Bojovník kryje najmladších telom a štítom", "bojovnik", "vydrz", 36,
+                "Štít Železného Dubu zadrží protiúder — nikomu sa nič nestane.", "Štít praská, no drží.", "Protiúder ho zrazí na koleno."),
+            _xo("B) Elf zráža tieňové strely v lete", "elf", "obratnost", 36,
+                "Presné šípy zrážajú strely skôr, než dopadnú.", "Väčšinu zrazí, jedna prejde.", "Striel je priveľa a šípy nestíhajú."),
+            _xo("C) Vedma odrazí protiúder tieňovou bariérou", "vedma", "magia", 36,
+                "Bariéra protiúder vstrebe a odrazí.", "Bariéra drží na poslednú chvíľu.", "Protiúder bariéru prelomí."))],
+    "2026-08-30": [  # Morgrath - finále
+        _xd("Morgrath povstáva v plnej tieňovej moci. Ako prelomíte jeho obranu?", "tajomne",
+            _xo("A) Vedma strhne jeho tieňový plášť kliatbou", "vedma", "magia", 36,
+                "Plášť sa rozpadá — Morgrath je odhalený.", "Plášť sa roztrhne napoly.", "Plášť kliatbu pohltí."),
+            _xo("B) Kúzelník rozbije jeho obranu úlomkami Svetla", "kuzelnik", "magia", 36,
+                "Svetlo prepáli tieňový pancier.", "Pancier sa naštrbí.", "Tieň svetlo na chvíľu udusí."),
+            _xo("C) Bojovník prerazí obranu žiariacim mečom", "bojovnik", "sila", 36,
+                "Meč Úsvit pretne tieň — vzniká škára.", "Meč zatlačí, no obrana drží.", "Tieňová stena meč odrazí.")),
+        _xd("Morgrath sa pokúša zlomiť vôľu družiny strachom. Kto vydrží?", "sociale",
+            _xo("A) Bojovník pripomenie všetkým, prečo bojujú", "bojovnik", "charizma", 36,
+                "Jeho slová zaženú strach — družina stojí pevne.", "Strach poľaví, no neodíde celkom.", "Temnota na chvíľu prevládne."),
+            _xo("B) Najmladší sa Morgrathovho hlasu nebojí", "medvedik", "charizma", 35,
+                "Nevinnosť strach nepozná — Morgrath stráca moc.", "Hlas ho zmätie, no nezlomí.", "Hrozivý hlas ho rozplače.", 2),
+            _xo("C) Vedma obráti strach späť na Morgratha", "vedma", "magia", 36,
+                "Jeho vlastný strach sa proti nemu obráti.", "Časť strachu odrazí.", "Morgrath strach vstrebe a zosilnie.")),
+        _xd("Nastáva posledný úder spojeným Svetlom Úsvitu. Kto ho zasadí?", "tajomne",
+            _xo("A) Bojovník mečom Úsvit s Runovým kameňom", "bojovnik", "sila", 37,
+                "Žiarivý úder rozotne Morgratha — tieň sa rozplýva navždy.", "Úder Morgratha zatlačí na okraj zániku.", "Morgrath posledný úder odrazí — treba spoločnú silu."),
+            _xo("B) Najmladší pozdvihne Svetlo Úsvitu naplno", "medvedik", "stastie", 35,
+                "Svetlo nevinnosti zaplaví sieň — Morgrath nemá kam ujsť.", "Svetlo ho oslepí, no on sa vzpiera.", "Svetlo blikne — treba pomoc celej družiny.", 2),
+            _xo("C) Celá družina naraz, spojeným svetlom", "bojovnik", "charizma", 36,
+                "Spojené svetlo celej družiny Morgratha úplne rozptýli.", "Spojené svetlo ho takmer zničí.", "Načasovanie zlyhá a svetlo sa rozptýli."))],
+}
+
+
 def build_decisions(ds, entry):
     """Jednotný zoznam rozhodnutí dňa.
 
-    Poradie: bežné (decision1/2/3) → detské (posledné z rozhodnutí) → 🎁 predmet → 🛒 nákup.
-    Každý deň má tak 4 rozhodnutia (3 bežné + detské) a k tomu možnosť predmetu alebo kúpy.
+    Poradie: bežné (decision1/2/3) → extra (boss/mini-boss/ťažší) → detské
+    → 🎁 predmet → 🛒 nákup. Každý deň má min. 4 rozhodnutia (3 bežné + detské),
+    ťažšie dni viac (ťažší +1, mini-boss +2, boss +3).
     """
     out = []
     tier = day_tier(entry)
@@ -3926,6 +4291,16 @@ def build_decisions(ds, entry):
             "prompt": d["prompt"],
             "options": [_norm_option(o, tier) for o in d["options"]],
         })
+    # extra rozhodnutia pre ťažšie dni (DC odvodené od atribútu postavy podľa tieru)
+    xi = 4
+    for d in EXTRA_DECISIONS.get(ds, []):
+        out.append({
+            "id": f"d{xi}",
+            "typ": d.get("type", "fyzicke"),
+            "prompt": d["prompt"],
+            "options": [_norm_option(o, tier, rebase=True) for o in d["options"]],
+        })
+        xi += 1
     # detské — posledné z rozhodnutí (pred predmetom a nákupom); DC sa NEzvyšuje (pre najmenších)
     out.append(detske_for_day(ds))
     # nájdené predmety -> predmetové rozhodnutia
