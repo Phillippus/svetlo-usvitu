@@ -773,21 +773,32 @@ def render_gm_calendar(entry):
     """Typy dní a počty rozhodnutí v tejto + nasledujúcej kapitole — len v GM móde."""
     cur_ch = entry["chapter"]
     rows = []
-    for ds, e in sorted(CAMPAIGN.items()):
-        if e["chapter"] not in (cur_ch, cur_ch + 1) or e["day"] < 1:
+    for ch_id in (cur_ch, cur_ch + 1):
+        ch = chapter_by_id(ch_id)
+        if not ch:
             continue
-        tier = day_tier(e)
-        decs = build_decisions(ds, e)
-        bezne = sum(1 for d in decs if d["typ"] not in ("predmet", "nakup", "detske"))
-        target = target_bezne(e)
-        mark = "✅" if bezne >= target else f"⚠️ {bezne}/{target}"
-        d = datetime.date.fromisoformat(ds)
-        col = KIND_COLOR.get(tier, "#888")
+        days = [(ds, e) for ds, e in sorted(CAMPAIGN.items())
+                if e["chapter"] == ch_id and e["day"] >= 1]
+        if not days:
+            continue
+        # hlavička kapitoly s jej farbou
         rows.append(
-            f"<div style='border-left:4px solid {col};background:{col}1f;padding:3px 9px;"
-            f"margin:3px 0;border-radius:5px;font-size:0.86rem'>"
-            f"{KIND_LABEL.get(tier, '')} · <b>D{e['day']}</b> {d.strftime('%d.%m.')} — "
-            f"{e['title']} · {bezne}/{target} {mark}</div>")
+            f"<div style='background:linear-gradient(90deg,{ch['farba']}44,transparent);"
+            f"border-left:6px solid {ch['farba']};padding:6px 10px;margin:10px 0 4px;"
+            f"border-radius:6px;font-weight:bold'>{ch['nazov']}</div>")
+        for ds, e in days:
+            tier = day_tier(e)
+            decs = build_decisions(ds, e)
+            bezne = sum(1 for d in decs if d["typ"] not in ("predmet", "nakup", "detske"))
+            target = target_bezne(e)
+            mark = "✅" if bezne >= target else f"⚠️ {bezne}/{target}"
+            d = datetime.date.fromisoformat(ds)
+            col = KIND_COLOR.get(tier, "#888")
+            rows.append(
+                f"<div style='border-left:4px solid {col};background:{col}1f;padding:3px 9px;"
+                f"margin:3px 0 3px 12px;border-radius:5px;font-size:0.86rem'>"
+                f"{KIND_LABEL.get(tier, '')} · <b>D{e['day']}</b> {d.strftime('%d.%m.')} — "
+                f"{e['title']} · {bezne}/{target} {mark}</div>")
     with st.expander("🔒 GM kalendár — typy dní a počty rozhodnutí (táto + nasledujúca kapitola)",
                      expanded=False):
         st.caption("Cieľ bežných rozhodnutí: 🌿 Pokojný 3 · 🗺️ Bežný 4–5 · ⚡ Rušný 6 · "
