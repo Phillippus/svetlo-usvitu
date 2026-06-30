@@ -21,7 +21,7 @@ from data import (
     CAMPAIGN, CHAPTERS, CHAPTER_COLORS, chapter_by_id,
     PARTY_MALA, PARTY_VELKA_DOPLNOK, PARTY_ALL, CLANS, CLAN_OF,
     STATS, STAT_KEYS, STAT_LABELS, STAT_NAMES, stats_dict, start_vydrz,
-    ABILITIES, STARTING_EQUIPMENT, LEGENDARY_ITEMS, WEAPONS_SHOP, EXPENSES,
+    ABILITIES, SPECIAL_ABILITIES, STARTING_EQUIPMENT, LEGENDARY_ITEMS, WEAPONS_SHOP, EXPENSES,
     DC_SCALE, MILESTONE_POINTS, MILESTONE_LABELS, REGEN_RULES, ZISK_OSOBNE_PODIEL,
     WORLD_INTRO, GROUP_SCHEDULE,
     build_decisions, shop_for_day, gm_color_for_day, day_type_label,
@@ -136,14 +136,23 @@ def init_state():
         ss["inventory"] = {cid: [] for cid in STATS}
     if "milestone_points" not in ss:
         ss["milestone_points"] = {cid: 0 for cid in STATS}
+    if "abilities" not in ss:
+        ss["abilities"] = {pid: {a["id"]: a["max_pouziti"] for a in lst}
+                           for pid, lst in SPECIAL_ABILITIES.items()}
+    if "active_effects" not in ss:
+        ss["active_effects"] = {}      # {date_str: [{postava, efekt, hodnota, popis}]}
+    if "temp_bonusy" not in ss:
+        ss["temp_bonusy"] = {}         # {date_str: [{postava, atribut, hodnota, zdroj}]}
 
 
 # =========================================================================
 #  UKLADANIE / NAČÍTANIE POSTUPU (JSON súbor — offline, bez DB)
 # =========================================================================
-SAVE_CORE = ["stats", "hp", "gold", "inventory", "milestone_points"]
+SAVE_CORE = ["stats", "hp", "gold", "inventory", "milestone_points",
+             "abilities", "active_effects", "temp_bonusy", "pending_ability"]
 PROGRESS_PREFIXES = ("res_", "res2_", "crit1_", "predmet_done_", "nakup_done_",
-                     "levelup20_", "balloons_", "zlato_done_")
+                     "levelup20_", "balloons_", "zlato_done_",
+                     "stastna_kocka_", "dvojita_odmena_", "bojovnik_hranica_", "skip_")
 
 
 def serialize_state():
@@ -262,14 +271,36 @@ def item_attr_bonus(cid, akey, is_combat):
     return total, detail
 
 
-def evaluate(opt, roll, cid, is_combat=False):
+def special_mods(cid, akey, ds):
+    """(suma, detaily) z dočasných bonusov a denných postihov zo špeciálnych schopností."""
+    ss = st.session_state
+    total = 0
+    detail = []
+    for b in ss.get("temp_bonusy", {}).get(ds, []):
+        if b.get("postava") in ("all", cid) and b.get("atribut") in ("all", akey):
+            total += b["hodnota"]
+            detail.append((b.get("zdroj", "bonus"), b["hodnota"]))
+    for e in ss.get("active_effects", {}).get(ds, []):
+        if e.get("efekt") == "minus_hody" and e.get("postava") in ("all", cid):
+            total += e["hodnota"]
+            detail.append((e.get("popis", "postih"), e["hodnota"]))
+    return total, detail
+
+
+def evaluate(opt, roll, cid, is_combat=False, ds=None):
+    ss = st.session_state
     akey = _atr_key(opt)
-    atr = st.session_state["stats"][cid].get(akey, 0)
+    atr = ss["stats"][cid].get(akey, 0)
     bonus = opt.get("bonus", 0)
     item_b, item_detail = item_attr_bonus(cid, akey, is_combat)
-    total = roll + atr + bonus + item_b
-    diff = total - opt["dc"]
-    if total >= opt["dc"]:
+    spec_b, spec_detail = special_mods(cid, akey, ds)
+    roll_eff = roll
+    if ds and ss.get(f"stastna_kocka_{ds}"):       # Goblin — Šťastná kocka
+        roll_eff = max(roll, 10)
+    total = roll_eff + atr + bonus + item_b + spec_b
+    dc = opt["dc"]
+    diff = total - dc
+    if total >= dc:
         outcome = "success"
     elif diff >= -3:
         outcome = "near"
@@ -277,9 +308,10 @@ def evaluate(opt, roll, cid, is_combat=False):
         outcome = "fail"
     return {
         "idx": None, "postava": cid, "atribut": akey,
-        "roll": roll, "atr": atr, "bonus": bonus,
+        "roll": roll, "roll_eff": roll_eff, "atr": atr, "bonus": bonus,
         "item_bonus": item_b, "item_detail": item_detail,
-        "total": total, "dc": opt["dc"], "diff": diff, "outcome": outcome,
+        "spec_bonus": spec_b, "spec_detail": spec_detail,
+        "total": total, "dc": dc, "diff": diff, "outcome": outcome,
     }
 
 
@@ -305,20 +337,29 @@ def _signed(val, label):
 
 
 def render_calc(res):
-    line = f"{res['roll']} (hod) + {res['atr']} ({atr_name(res['atribut'])})"
+    if res.get("auto") or res.get("skipped") or res.get("spoj"):
+        return
+    re = res.get("roll_eff", res["roll"])
+    rolltxt = f"{re} (hod)"
+    if res.get("roll_eff") is not None and res["roll_eff"] != res["roll"]:
+        rolltxt = f"{res['roll']}→{re} (hod · Šťastná kocka)"
+    line = f"{rolltxt} + {res['atr']} ({atr_name(res['atribut'])})"
     if res.get("bonus"):
         line += _signed(res["bonus"], "situácia")
     if res.get("item_bonus"):
         line += _signed(res["item_bonus"], "výbava")
+    if res.get("spec_bonus"):
+        line += _signed(res["spec_bonus"], "schopnosť")
     line += f" = {res['total']}"
     st.markdown(f"`{line}`  vs  **DC {res['dc']}**")
-    if res.get("item_detail"):
-        chips = " · ".join(f"{nm} {'+' if v >= 0 else '−'}{abs(v)}"
-                           f"{' ⚔️' if k == 'boj' else ''}" for nm, v, k in res["item_detail"])
-        st.caption(f"🎒 Z výbavy: {chips}")
+    chips = [f"{nm} {'+' if v >= 0 else '−'}{abs(v)}{' ⚔️' if k == 'boj' else ''}"
+             for nm, v, k in res.get("item_detail", [])]
+    chips += [f"{nm} {'+' if v >= 0 else '−'}{abs(v)}" for nm, v in res.get("spec_detail", [])]
+    if chips:
+        st.caption("🎒 " + " · ".join(chips))
 
 
-def render_option_panel(opt, accent, is_combat=False):
+def render_option_panel(opt, accent, is_combat=False, ds=None):
     """Detailný rozpis: postava, atribút, situačný bonus, bonusy z výbavy, DC, koľko treba hodiť."""
     ss = st.session_state
     pid = opt["postava_id"]
@@ -327,9 +368,13 @@ def render_option_panel(opt, accent, is_combat=False):
     atr = ss["stats"][pid].get(akey, 0)
     bonus = opt["bonus"]
     item_b, item_detail = item_attr_bonus(pid, akey, is_combat)
-    total = atr + bonus + item_b
+    spec_b, spec_detail = special_mods(pid, akey, ds)
+    floor10 = bool(ds and ss.get(f"stastna_kocka_{ds}"))
+    total = atr + bonus + item_b + spec_b
     dc = opt["dc"]
     need = dc - total
+    if floor10:
+        need = min(need, 10)        # vďaka Šťastnej kocke nikdy netreba hodiť viac než 10
     if need <= 1:
         need_txt = "stačí hodiť <b>1+</b>"
     elif need <= 20:
@@ -344,14 +389,18 @@ def render_option_panel(opt, accent, is_combat=False):
         tag = " ⚔️v boji" if k == "boj" else ""
         extra += (f"<br>&nbsp;&nbsp;&nbsp;<span style='color:#9aa'>"
                   f"{'+' if v >= 0 else '−'} {abs(v)} {nm}{tag}</span>")
-    if bonus or item_b:
+    for nm, v in spec_detail:
+        extra += (f"<br>&nbsp;&nbsp;&nbsp;<span style='color:#9aa'>"
+                  f"{'+' if v >= 0 else '−'} {abs(v)} {nm}</span>")
+    if bonus or item_b or spec_b:
         extra += f"<br>= <b>{total}</b> celkový základ"
+    floor_txt = " · 🎲 <span style='color:#d4a017'>Šťastná kocka (min 10)</span>" if floor10 else ""
 
     html = (f"<div class='su-opt' style='border-color:{accent}55'>"
             f"<b>{opt['label']}</b><br>"
             f"👤 {opt['postava_ikona']} {opt['postava_nazov']}<br>"
             f"{emoji} {opt['atribut_nazov']}: <b>{atr}</b> (aktuálna){extra}<br>"
-            f"🎯 DC {dc} · 📊 d20 + {total} ≥ {dc} → {need_txt}</div>")
+            f"🎯 DC {dc} · 📊 d20 + {total} ≥ {dc} → {need_txt}{floor_txt}</div>")
     st.markdown(html, unsafe_allow_html=True)
 
 
@@ -378,34 +427,111 @@ def render_decision(n, ds, dec, accent, entry, gm):
     return render_skill_decision(n, ds, dec, accent, entry, positive=(t == "detske"))
 
 
+def highest_attr(cid):
+    s = st.session_state["stats"].get(cid, {})
+    if not s:
+        return 0, "sila"
+    k = max(s, key=lambda x: s[x])
+    return s[k], k
+
+
+NEXT_DECISION_MECHS = ("zniz_dc", "skryta_moznost_d", "auto_uspech", "auto_uspech_skupina",
+                       "preskocit_rozhodnutie", "spoj_hody_vsetci", "spoj_hody_dvaja")
+REROLL_MECHS = ("prehodenie_hodu", "prehodenie_hodu_plus5")
+
+
+def _success_res(opt, note):
+    return {"idx": 0, "postava": opt["postava_id"], "atribut": opt["atribut_key"],
+            "roll": 20, "roll_eff": 20, "atr": 0, "bonus": 0, "item_bonus": 0, "item_detail": [],
+            "spec_bonus": 0, "spec_detail": [], "total": 0, "dc": opt["dc"], "diff": 0,
+            "outcome": "success", "auto": True, "auto_note": note}
+
+
 def render_skill_decision(n, ds, dec, accent, entry, positive=False):
     ss = st.session_state
     reskey = f"res_{ds}_{dec['id']}"
     badge = TYPE_BADGE.get(dec["typ"], "")
-
     is_combat = dec["typ"] == "fyzicke"
+    pend = ss.get("pending_ability")
 
     st.markdown(f"#### {badge} · Rozhodnutie {n}")
     st.markdown(f"**{dec['prompt']}**")
 
     if reskey not in ss:
-        for idx, opt in enumerate(dec["options"]):
-            render_option_panel(opt, accent, is_combat)
+        # ── čakajúca špeciálna schopnosť, ktorá sa prejaví na tomto rozhodnutí ──
+        dc_delta = 0
+        if pend and not positive and pend["mechanika"] in NEXT_DECISION_MECHS:
+            mech = pend["mechanika"]
+            if mech == "zniz_dc":
+                dc_delta = -int(pend.get("hodnota", 0))
+                st.info(f"🎯 **{pend['nazov']}** aktívna — DC −{abs(dc_delta)} pre toto rozhodnutie.")
+            elif mech == "skryta_moznost_d":
+                if dec.get("option_d"):
+                    st.success(f"🎁 **{pend['nazov']}** — odomknutá skrytá možnosť D!")
+                else:
+                    st.info(f"🎁 **{pend['nazov']}**: v tejto scéne nie je skrytá cesta.")
+                    ss.pop("pending_ability", None)
+                    pend = None
+            elif mech in ("auto_uspech", "auto_uspech_skupina"):
+                koho = "celej skupiny" if mech == "auto_uspech_skupina" else PARTY_ALL[pend['postava']]['meno']
+                st.success(f"✅ **{pend['nazov']}** — vyber možnosť a potvrď automatický úspech ({koho}).")
+                for idx, opt in enumerate(dec["options"]):
+                    if st.button(f"✅ Automatický úspech: {opt['label']}", key=f"autosucc_{ds}_{dec['id']}_{idx}"):
+                        r = _success_res(opt, pend["nazov"]); r["idx"] = idx
+                        ss[reskey] = r
+                        ss.pop("pending_ability", None)
+                        st.rerun()
+                st.caption("…alebo hoď normálne nižšie (schopnosť ostane pripravená).")
+            elif mech == "preskocit_rozhodnutie":
+                st.success(f"⏭️ **{pend['nazov']}** — preskočiť toto rozhodnutie bez následkov?")
+                if st.button("⏭️ Preskočiť (úspech bez hodu)", key=f"skipbtn_{ds}_{dec['id']}"):
+                    opt = dec["options"][0]
+                    r = _success_res(opt, pend["nazov"]); r["skipped"] = True
+                    ss[reskey] = r
+                    ss.pop("pending_ability", None)
+                    st.rerun()
+                st.caption("…alebo hoď normálne nižšie.")
+            elif mech in ("spoj_hody_vsetci", "spoj_hody_dvaja"):
+                return render_spoj_decision(n, ds, dec, accent, entry, pend)
+
+        # ── normálne možnosti (s prípadným znížením DC) ──
+        opts = list(dec["options"])
+        if dec.get("option_d") and pend and pend.get("mechanika") == "skryta_moznost_d":
+            opts = opts + [dec["option_d"]]
+        for idx, opt in enumerate(opts):
+            opt_disp = dict(opt)
+            if dc_delta:
+                opt_disp["dc"] = max(1, opt["dc"] + dc_delta)
+            render_option_panel(opt_disp, accent, is_combat, ds)
             if st.button(f"🎲 {opt['postava_ikona']} {opt['postava_nazov']} — hodiť kockou",
                          key=f"btn_{ds}_{dec['id']}_{idx}"):
                 ph = st.empty()
                 roll = animated_roll(ph, accent)
-                res = evaluate(opt, roll, opt["postava_id"], is_combat)
+                res = evaluate(opt_disp, roll, opt["postava_id"], is_combat, ds)
                 res["idx"] = idx
+                if idx >= len(dec["options"]):       # použila sa skrytá možnosť D
+                    res["option_d"] = True
                 ss[reskey] = res
+                if dc_delta or (pend and pend.get("mechanika") == "skryta_moznost_d"):
+                    ss.pop("pending_ability", None)  # spotrebuj
                 st.rerun()
         return False
 
-    # už rozhodnuté
+    # ── už rozhodnuté ──
     res = ss[reskey]
-    opt = dec["options"][res["idx"]]
+    opts_all = list(dec["options"])
+    if dec.get("option_d"):
+        opts_all = opts_all + [dec["option_d"]]
+    opt = opts_all[res["idx"]] if res["idx"] < len(opts_all) else dec["options"][0]
     st.markdown(f"➡️ **{opt['label']}** · {opt['postava_ikona']} {opt['postava_nazov']}")
+    if res.get("auto"):
+        st.success(f"✅ Automatický úspech — {res.get('auto_note', 'špeciálna schopnosť')} "
+                   f"({'preskočené' if res.get('skipped') else 'bez hodu'}).")
     render_calc(res)
+    if res.get("spoj"):
+        lines = " + ".join(f"{PARTY_ALL[c]['icon']}{short_name(c)} ({roll}+{hv} {atr_name(hk)})"
+                           for c, roll, hv, hk in res["spoj_rolls"])
+        st.markdown(f"🔗 **Spoločný hod:** {lines} = **{res['total']}**  vs  **DC {res['dc']}**")
 
     if positive:
         # detské — vždy aspoň čiastočne pozitívne
@@ -423,8 +549,10 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
         else:
             st.error(opt["result_fail"])
 
-    # Hod 1 — kritický neúspech: −10 % Výdrže navyše (raz)
-    if res["roll"] == 1 and not positive:
+    real = not (res.get("auto") or res.get("skipped") or res.get("spoj"))
+
+    # Hod 1 — kritický neúspech: −10 % Výdrže navyše (raz). Šťastná kocka / Prorocká vízia to rušia.
+    if real and res["roll"] == 1 and res.get("roll_eff", 1) == 1 and not positive:
         critkey = f"crit1_{ds}_{dec['id']}"
         if not ss.get(critkey):
             hp = ss["hp"][opt["postava_id"]]
@@ -434,7 +562,7 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
             st.caption(f"💀 Kritický neúspech: {opt['postava_nazov']} −{strata} Výdrže.")
 
     # Levelup pri hode 20 (max 1× za deň na postavu)
-    if res["roll"] == 20:
+    if real and res["roll"] == 20:
         lvlkey = f"levelup20_{ds}_{opt['postava_id']}"
         an = atr_name(res["atribut"])
         if ss.get(lvlkey):
@@ -447,8 +575,24 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
                 st.toast(f"{opt['postava_nazov']}: +1 {an}!", icon="⭐")
                 st.rerun()
 
-    # Veľký neúspech → druhá šanca (nie pri detskom)
-    if res["outcome"] == "fail" and not positive:
+    # Prehodenie (Časová slučka / Druhý pokus) — ak je pripravená a hodilo sa naozaj
+    if real and pend and pend.get("mechanika") in REROLL_MECHS:
+        plus = int(pend.get("hodnota", 0))
+        lbl = f"🔄 {pend['nazov']} — prehodiť" + (f" (+{plus})" if plus else "")
+        if st.button(lbl, key=f"reroll_{ds}_{dec['id']}"):
+            opt_re = dict(opt)
+            opt_re["bonus"] = opt.get("bonus", 0) + plus
+            ph = st.empty()
+            roll = animated_roll(ph, accent)
+            r = evaluate(opt_re, roll, opt["postava_id"], is_combat, ds)
+            r["idx"] = res["idx"]
+            ss[reskey] = r
+            ss.pop(f"crit1_{ds}_{dec['id']}", None)
+            ss.pop("pending_ability", None)
+            st.rerun()
+
+    # Veľký neúspech → druhá šanca (nie pri detskom / auto)
+    if real and res["outcome"] == "fail" and not positive:
         render_second_chance(n, ds, dec, accent, entry)
 
     if st.button(f"↩️ Znova rozhodnutie {n}", key=f"reset_{ds}_{dec['id']}"):
@@ -456,6 +600,42 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
             ss.pop(k, None)
         st.rerun()
     return True
+
+
+def render_spoj_decision(n, ds, dec, accent, entry, pend):
+    """Spojené hody (Posledný strážca / Elfská synergia) — výsledky sa sčítajú."""
+    ss = st.session_state
+    reskey = f"res_{ds}_{dec['id']}"
+    opt = dec["options"][0]            # rámec rozhodnutia (DC, výsledkový text)
+    dc = opt["dc"]
+    mech = pend["mechanika"]
+    if mech == "spoj_hody_vsetci":
+        st.success(f"🔗 **{pend['nazov']}** — všetky postavy hodia, ich hod + najvyšší atribút sa sčíta "
+                   f"(cieľ DC {dc}).")
+        team = active_ids(entry)
+    else:
+        others = [c for c in active_ids(entry) if c != "elf"] or active_ids(entry)
+        druhy = st.selectbox("Spojiť Elfa s:", others,
+                             format_func=lambda c: f"{PARTY_ALL[c]['icon']} {short_name(c)}",
+                             key=f"spoj_{ds}_{dec['id']}")
+        st.success(f"🔗 **{pend['nazov']}** — Elf + {short_name(druhy)} hodia spoločne (cieľ DC {dc}).")
+        team = ["elf", druhy]
+    if st.button("🔗 Hodiť spoločne", key=f"spojbtn_{ds}_{dec['id']}"):
+        ph = st.empty()
+        rolls, total = [], 0
+        for c in team:
+            roll = animated_roll(ph, accent)
+            hv, hk = highest_attr(c)
+            rolls.append((c, roll, hv, hk))
+            total += roll + hv
+        outcome = "success" if total >= dc else ("near" if total >= dc - 3 else "fail")
+        ss[reskey] = {"idx": 0, "spoj": True, "spoj_rolls": rolls, "total": total, "dc": dc,
+                      "diff": total - dc, "outcome": outcome, "postava": team[0],
+                      "atribut": opt["atribut_key"], "roll": 0, "roll_eff": 0}
+        ss.pop("pending_ability", None)
+        st.rerun()
+    st.caption("…alebo zruš schopnosť a hraj normálne (Reset dňa).")
+    return False
 
 
 def render_second_chance(n, ds, dec, accent, entry):
@@ -493,7 +673,7 @@ def render_second_chance(n, ds, dec, accent, entry):
         ph = st.empty()
         roll = animated_roll(ph, accent)
         r = evaluate({"atribut": atr, "bonus": 0, "dc": new_dc}, roll, pid,
-                     dec["typ"] == "fyzicke")
+                     dec["typ"] == "fyzicke", ds)
         ss[res2key] = r
         st.rerun()
 
@@ -1009,10 +1189,15 @@ def render_zlato_odmena(ds, entry):
     osobne = int(z.get("osobne", 0))
     klanove = int(z.get("klanove", 0))
     dovod = z.get("dovod", "")
+    dvojnasobok = bool(ss.get(f"dvojita_odmena_{ds}"))
+    if dvojnasobok:
+        osobne *= 2
+        klanove *= 2
     donekey = f"zlato_done_{ds}"
     st.markdown(
         f"<div class='su-chapter'>💰 <b>Odmena dňa:</b> +{osobne} osobné každej postave · "
-        f"+{klanove} do klanu{(' — <i>' + dovod + '</i>') if dovod else ''}</div>",
+        f"+{klanove} do klanu{' · 💰 <b>×2 (Zlatý nos)</b>' if dvojnasobok else ''}"
+        f"{(' — <i>' + dovod + '</i>') if dovod else ''}</div>",
         unsafe_allow_html=True)
     if ss.get(donekey):
         st.caption("✅ Odmena dňa už bola pripísaná.")
@@ -1024,6 +1209,125 @@ def render_zlato_odmena(ds, entry):
         ss[donekey] = True
         st.toast(f"Odmena pripísaná: +{osobne} každému, +{klanove} klan", icon="💰")
         st.rerun()
+
+
+# =========================================================================
+#  ŠPECIÁLNE SCHOPNOSTI — panel + vykonanie
+# =========================================================================
+def use_ability(cid, ab, ds, entry, extra):
+    ss = st.session_state
+    mech = ab["mechanika"]
+    ids = active_ids(entry)
+    msg = f"{ab['nazov']} použitá."
+
+    if mech == "minimum_hodu":
+        ss[f"stastna_kocka_{ds}"] = True
+        msg = "🎲 Šťastná kocka — dnes žiaden hod neklesne pod 10."
+    elif mech == "dvojita_odmena":
+        ss[f"dvojita_odmena_{ds}"] = True
+        msg = "💰 Zlatý nos — odmena dňa sa zdvojnásobí."
+    elif mech == "obnov_zivoty_100":
+        t = extra.get("target", cid)
+        ss["hp"][t]["current"] = ss["hp"][t]["max"]
+        msg = f"💚 {short_name(t)} obnovený na plnú Výdrž."
+    elif mech == "obnov_zivoty_100_vsetci":
+        for x in ids:
+            ss["hp"][x]["current"] = ss["hp"][x]["max"]
+        msg = "💚 Celá družina na plnej Výdrži."
+    elif mech == "obnov_zivoty_50_dvaja":
+        for t in extra.get("targets", []):
+            hp = ss["hp"][t]
+            hp["current"] = min(hp["max"], hp["current"] + math.ceil(hp["max"] * 0.5))
+        msg = "💚 Dve postavy +50 % Výdrže."
+    elif mech == "bonus_atribut_vsetci":
+        at = extra.get("atribut", "sila")
+        ss["temp_bonusy"].setdefault(ds, []).append(
+            {"postava": "all", "atribut": at, "hodnota": ab.get("hodnota", 3), "zdroj": ab["nazov"]})
+        msg = f"➕ +{ab.get('hodnota', 3)} {atr_name(at)} pre všetkých dnes."
+    elif mech == "prebrat_zasah_skupina":
+        absorb = 0
+        for x in ids:
+            if x == cid:
+                continue
+            hp = ss["hp"][x]
+            absorb += hp["max"] - hp["current"]
+            hp["current"] = hp["max"]
+        oh = ss["hp"][cid]
+        oh["current"] = max(0, oh["current"] - absorb)
+        msg = f"🛡️ Obor prevzal {absorb} Výdrže za skupinu."
+    elif mech in NEXT_DECISION_MECHS or mech in REROLL_MECHS:
+        ss["pending_ability"] = {"postava": cid, "id": ab["id"], "mechanika": mech,
+                                 "hodnota": ab.get("hodnota", 0), "nazov": ab["nazov"]}
+        msg = f"{ab['ikona']} {ab['nazov']} pripravená — prejaví sa pri rozhodnutí."
+
+    # ── ceny ──
+    cena = ab.get("cena")
+    if cena == "minus3_hody_dalsi_den":
+        tom = (datetime.date.fromisoformat(ds) + datetime.timedelta(days=1)).isoformat()
+        ss["active_effects"].setdefault(tom, []).append(
+            {"postava": cid, "efekt": "minus_hody", "hodnota": -3, "popis": f"{ab['nazov']} (cena)"})
+    elif cena == "bojovnik_1_zivot":
+        ss["hp"]["bojovnik"]["current"] = 1
+        ss[f"bojovnik_hranica_{ds}"] = True
+    elif cena == "liecitelka_10_percent":
+        hp = ss["hp"]["liecitelka"]
+        hp["current"] = max(1, round(hp["max"] * 0.1))
+    return msg
+
+
+def render_ability_targets(cid, ab, entry):
+    """Vykreslí výber cieľa (ak ho schopnosť potrebuje) a vráti extra parametre."""
+    ids = active_ids(entry)
+    mech = ab["mechanika"]
+    extra = {}
+    fmt = lambda c: f"{PARTY_ALL[c]['icon']} {short_name(c)}"
+    if mech == "obnov_zivoty_100":
+        extra["target"] = st.selectbox("Komu", ids, format_func=fmt, key=f"abt_{cid}_{ab['id']}")
+    elif mech == "obnov_zivoty_50_dvaja":
+        c = st.columns(2)
+        t1 = c[0].selectbox("1. postava", ids, format_func=fmt, key=f"abt1_{cid}_{ab['id']}")
+        rest = [x for x in ids if x != t1]
+        t2 = c[1].selectbox("2. postava", rest, format_func=fmt, key=f"abt2_{cid}_{ab['id']}")
+        extra["targets"] = [t1, t2]
+    elif mech == "bonus_atribut_vsetci":
+        extra["atribut"] = st.selectbox("Atribút", STAT_KEYS,
+                                        format_func=lambda k: STAT_NAMES[STAT_KEYS.index(k)],
+                                        key=f"aba_{cid}_{ab['id']}")
+    return extra
+
+
+def render_special_abilities_panel(ds, entry):
+    ss = st.session_state
+    pend = ss.get("pending_ability")
+    if pend:
+        kde = ("použije sa na práve hodené rozhodnutie"
+               if pend["mechanika"] in REROLL_MECHS else "prejaví sa pri nasledujúcom rozhodnutí")
+        st.info(f"⚡ Pripravená schopnosť: **{pend['nazov']}** — {kde}.")
+    if ss.get(f"bojovnik_hranica_{ds}"):
+        st.warning("🛡️ Bojovník je na hranici (1 život) — ďalší zásah ho dnes vyradí z boja.")
+    with st.expander("⚡ Špeciálne schopnosti", expanded=False):
+        st.caption("Silné schopnosti — každá len párkrát za celú kampaň. 🟢 dostupné · ⚪ vyčerpané.")
+        for cid in active_ids(entry):
+            lst = SPECIAL_ABILITIES.get(cid, [])
+            if not lst:
+                continue
+            st.markdown(f"**{PARTY_ALL[cid]['icon']} {PARTY_ALL[cid]['meno']}**")
+            for ab in lst:
+                rem = ss["abilities"].setdefault(cid, {}).get(ab["id"], ab["max_pouziti"])
+                dots = "🟢" * rem + "⚪" * (ab["max_pouziti"] - rem)
+                st.markdown(f"{ab['ikona']} **{ab['nazov']}** {dots}  \n"
+                            f"<span style='font-size:0.83rem;color:#9aa'>{ab['popis']}</span>",
+                            unsafe_allow_html=True)
+                if ab.get("cena_popis"):
+                    st.markdown(f"<span style='color:#f85149;font-size:0.8rem'>⚠️ Cena: {ab['cena_popis']}</span>",
+                                unsafe_allow_html=True)
+                extra = render_ability_targets(cid, ab, entry) if rem > 0 else {}
+                if st.button("Použiť", key=f"useab_{ds}_{cid}_{ab['id']}", disabled=(rem <= 0)):
+                    msg = use_ability(cid, ab, ds, entry, extra)
+                    ss["abilities"][cid][ab["id"]] = rem - 1
+                    st.toast(msg, icon="⚡")
+                    st.rerun()
+            st.markdown("<hr style='margin:3px 0;opacity:0.2'>", unsafe_allow_html=True)
 
 
 def render_gm_calendar(entry):
@@ -1163,6 +1467,7 @@ def main():
 
     # Nadpis + intro
     st.markdown(f"## {entry['title']}")
+    render_special_abilities_panel(ds, entry)
     st.markdown("##### 📖 Prečítaj nahlas")
     st.markdown(f"<div class='su-quote'>{entry['intro']}</div>", unsafe_allow_html=True)
 

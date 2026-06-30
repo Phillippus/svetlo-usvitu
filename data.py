@@ -194,6 +194,104 @@ ABILITIES = {
 }
 
 # =========================================================================
+#  ŠPECIÁLNE (ULTIMÁTNE) SCHOPNOSTI — len párkrát za celú kampaň
+# =========================================================================
+SPECIAL_ABILITIES = {
+    "vedma": [
+        {"id": "temnozrak", "nazov": "Temnozrak", "mechanika": "skryta_moznost_d", "ikona": "🎁",
+         "popis": "Odomkne skrytú možnosť D, ktorá inak nie je viditeľná.",
+         "max_pouziti": 1, "cena": None, "cena_popis": None},
+        {"id": "kliatba_osudu", "nazov": "Kliatba osudu", "mechanika": "zniz_dc", "ikona": "🎯",
+         "popis": "Zníži DC nasledujúceho rozhodnutia o 15 bodov.", "hodnota": 15,
+         "max_pouziti": 1, "cena": None, "cena_popis": None},
+    ],
+    "bojovnik": [
+        {"id": "svetlo_usvitu", "nazov": "Svetlo Úsvitu", "mechanika": "skryta_moznost_d", "ikona": "🎁",
+         "popis": "Meč Úsvit vydá plné svetlo relikvie a odomkne skrytú možnosť D.",
+         "max_pouziti": 1, "cena": "minus3_hody_dalsi_den",
+         "cena_popis": "Nasledujúci deň −3 ku všetkým hodom Bojovníka."},
+        {"id": "posledny_strazca", "nazov": "Posledný strážca", "mechanika": "spoj_hody_vsetci", "ikona": "🔗",
+         "popis": "Všetky postavy pridajú svoj najvyšší atribút — výsledky sa sčítajú.",
+         "max_pouziti": 1, "cena": "bojovnik_1_zivot",
+         "cena_popis": "Bojovník klesne na presne 1 život — ďalší zásah ho vyradí."},
+    ],
+    "elf": [
+        {"id": "elfska_synergia", "nazov": "Elfská synergia", "mechanika": "spoj_hody_dvaja", "ikona": "🔗",
+         "popis": "Elf spojí hod s inou postavou — výsledky sa sčítajú.",
+         "max_pouziti": 1, "cena": None, "cena_popis": None},
+        {"id": "neomylny_vystrel", "nazov": "Neomylný výstrel", "mechanika": "auto_uspech", "ikona": "✅",
+         "popis": "Automatický úspech na nasledujúcom rozhodnutí (DC ignorované).",
+         "max_pouziti": 1, "cena": None, "cena_popis": None},
+    ],
+    "kuzelnik": [
+        {"id": "casova_slucka", "nazov": "Časová slučka", "mechanika": "prehodenie_hodu", "ikona": "🔄",
+         "popis": "Prehodí posledný hod skupiny — čas sa na moment vráti späť.",
+         "max_pouziti": 1, "cena": None, "cena_popis": None},
+        {"id": "rozlomenie_bariery", "nazov": "Rozlomenie bariéry", "mechanika": "zniz_dc", "ikona": "🎯",
+         "popis": "Zníži DC nasledujúceho rozhodnutia o 20 bodov.", "hodnota": 20,
+         "max_pouziti": 1, "cena": None, "cena_popis": None},
+    ],
+    "goblin": [
+        {"id": "stastna_kocka", "nazov": "Šťastná kocka", "mechanika": "minimum_hodu", "ikona": "🎲",
+         "popis": "Celý deň neklesne žiaden hod pod 10.", "hodnota": 10,
+         "max_pouziti": 2, "cena": None, "cena_popis": None},
+        {"id": "zlaty_nos", "nazov": "Zlatý nos", "mechanika": "dvojita_odmena", "ikona": "💰",
+         "popis": "Zlatá odmena dňa sa zdvojnásobí.",
+         "max_pouziti": 1, "cena": None, "cena_popis": None},
+    ],
+    "medvedik": [
+        {"id": "zazracne_objatie", "nazov": "Zázračné objatie", "mechanika": "obnov_zivoty_100", "ikona": "💚",
+         "popis": "Okamžite obnoví 100 % Výdrže jednej postave.",
+         "max_pouziti": 2, "cena": None, "cena_popis": None},
+        {"id": "zlaty_smiech", "nazov": "Zlatý smiech", "mechanika": "preskocit_rozhodnutie", "ikona": "⏭️",
+         "popis": "Rozptýli napätie — preskočí jedno ťažké rozhodnutie bez následkov.",
+         "max_pouziti": 2, "cena": None, "cena_popis": None},
+    ],
+    # ---- Klan Zlatého Slnka — len počas Talianska (18.–25.7.), každý 1 schopnosť ----
+    "nacelnik": [
+        {"id": "klanova_inspiracia", "nazov": "Klanová inšpirácia", "mechanika": "bonus_atribut_vsetci", "ikona": "➕",
+         "popis": "+3 k zvolenému atribútu pre VŠETKÝCH na celý deň.", "hodnota": 3,
+         "max_pouziti": 1, "cena": None, "cena_popis": None},
+    ],
+    "liecitelka": [
+        {"id": "obeta_liecitelky", "nazov": "Obeta liečiteľky", "mechanika": "obnov_zivoty_100_vsetci", "ikona": "💚",
+         "popis": "Obnoví VŠETKY postavy na 100 % Výdrže súčasne.",
+         "max_pouziti": 1, "cena": "liecitelka_10_percent",
+         "cena_popis": "Liečiteľka klesne na 10 % Výdrže."},
+    ],
+    "velitel": [
+        {"id": "takticky_plan", "nazov": "Taktický plán", "mechanika": "auto_uspech_skupina", "ikona": "✅",
+         "popis": "Automatický úspech pre celú skupinu bez hodu.",
+         "max_pouziti": 1, "cena": None, "cena_popis": None},
+    ],
+    "alchymista": [
+        {"id": "druhy_pokus", "nazov": "Druhý pokus", "mechanika": "prehodenie_hodu_plus5", "ikona": "🔄",
+         "popis": "Prehodí neúspešný hod a pridá +5 k výsledku.", "hodnota": 5,
+         "max_pouziti": 1, "cena": None, "cena_popis": None},
+    ],
+    "obor": [
+        {"id": "zivy_stit", "nazov": "Živý štít", "mechanika": "prebrat_zasah_skupina", "ikona": "🛡️",
+         "popis": "Prevezme stratu Výdrže za celú skupinu naraz.",
+         "max_pouziti": 1, "cena": None, "cena_popis": None},
+    ],
+    "bylinkarka": [
+        {"id": "dvojite_liecenie", "nazov": "Dvojité liečenie", "mechanika": "obnov_zivoty_50_dvaja", "ikona": "💚",
+         "popis": "Obnoví 50 % Výdrže dvom postavám súčasne.",
+         "max_pouziti": 1, "cena": None, "cena_popis": None},
+    ],
+    "druid": [
+        {"id": "zvieraci_prieskum", "nazov": "Zvierací prieskum", "mechanika": "skryta_moznost_d", "ikona": "🎁",
+         "popis": "Havran Čierny Pierko odhalí skrytú možnosť D.",
+         "max_pouziti": 1, "cena": None, "cena_popis": None},
+    ],
+    "posol": [
+        {"id": "tajny_unik", "nazov": "Tajný únik", "mechanika": "preskocit_rozhodnutie", "ikona": "⏭️",
+         "popis": "Celá družina preskočí nebezpečné rozhodnutie bez následkov.",
+         "max_pouziti": 2, "cena": None, "cena_popis": None},
+    ],
+}
+
+# =========================================================================
 #  ŠTARTOVACIA VÝBAVA (pevná, mimo limitu 5 predmetov)
 # =========================================================================
 STARTING_EQUIPMENT = {
@@ -419,7 +517,11 @@ CAMPAIGN.update({
    {"label": "C) Vycítite mágiou smer", "postava": "kuzelnik", "atribut": "magia", "bonus": 0, "dc": 15,
     "result_success": "Cítite slabú temnú energiu - ukazuje k Starej veži na kopci.",
     "result_near": "Cítite len nejasné chvenie mágie, smer však ostáva hmlistý.",
-    "result_fail": "Temná energia vám zahmlí myseľ a kúzlo sa rozplynie bez odpovede."}]},
+    "result_fail": "Temná energia vám zahmlí myseľ a kúzlo sa rozplynie bez odpovede."}],
+  "option_d": {"label": "D) Vedma nazrie cez závoj hmly priamo do tieňov", "postava": "vedma", "atribut": "magia", "bonus": 0, "dc": 11,
+    "result_success": "Temnozrak prenikne hmlou — Vedma zazrie postavu v plášti, ako kladie kliatbu k studni. Družina vie presne, kam ísť.",
+    "result_near": "Vidina je hmlistá, no smer k studni je jasný.",
+    "result_fail": "Tieň vycíti jej pohľad a závoj zhustne."}},
  "decision2": {"prompt": "Čo urobí najmladší člen družiny?", "type": "humorne", "options": [
    {"label": "A) Hodí Šťastnú kocku", "postava": "goblin", "atribut": "stastie", "bonus": 0, "dc": 12,
     "result_success": "Kocka padne na 6 - dobré znamenie pre zajtrajší deň!",
@@ -3924,6 +4026,28 @@ def _norm_option(o, tier=None, rebase=False):
     }
 
 
+def _norm_option_d(o):
+    """Skrytá možnosť D — podporuje normalizovaný (postava_id/atribut_key) aj raw formát."""
+    if not o:
+        return None
+    pid = o.get("postava_id") or o.get("postava")
+    ak = o.get("atribut_key") or o.get("atribut")
+    p = PARTY_ALL.get(pid, {"meno": pid, "icon": "❔"})
+    bonus = o.get("bonus")
+    if bonus is None:
+        bonus = sum(b.get("hodnota", 0) for b in o.get("bonusy", []))
+    return {
+        "label": o.get("label", "D) Skrytá možnosť"),
+        "postava_id": pid, "postava_nazov": p["meno"], "postava_ikona": p["icon"],
+        "atribut_key": ak,
+        "atribut_nazov": STAT_NAMES[STAT_KEYS.index(ak)] if ak in STAT_KEYS else ak,
+        "bonus": bonus, "dc": o["dc"],
+        "result_success": o["result_success"],
+        "result_near": o.get("result_near", o["result_success"]),
+        "result_fail": o.get("result_fail", "Skrytá cesta zlyhala."),
+    }
+
+
 def shop_for_day(ds, entry):
     """Vráti (market_dict, polozky) pre daný deň, alebo (None, [])."""
     market = None
@@ -5232,6 +5356,7 @@ def build_decisions(ds, entry):
             "typ": d.get("type", "fyzicke"),
             "prompt": d["prompt"],
             "options": [_norm_option(o, tier) for o in d["options"]],
+            "option_d": _norm_option_d(d.get("option_d")),
         })
     # extra rozhodnutia pre ťažšie dni (DC odvodené od atribútu postavy podľa tieru)
     xi = 4
