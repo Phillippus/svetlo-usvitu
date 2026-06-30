@@ -1307,6 +1307,15 @@ def render_special_abilities_panel(ds, entry):
         st.warning("🛡️ Bojovník je na hranici (1 život) — ďalší zásah ho dnes vyradí z boja.")
     with st.expander("⚡ Špeciálne schopnosti", expanded=False):
         st.caption("Silné schopnosti — každá len párkrát za celú kampaň. 🟢 dostupné · ⚪ vyčerpané.")
+        if ss.get("gm_mode"):
+            if st.button("🔄 Dobiť všetky schopnosti (GM test)", key=f"recharge_ab_{ds}"):
+                ss["abilities"] = {pid: {a["id"]: a["max_pouziti"] for a in lst}
+                                   for pid, lst in SPECIAL_ABILITIES.items()}
+                ss.pop("pending_ability", None)
+                for k in (f"stastna_kocka_{ds}", f"dvojita_odmena_{ds}", f"bojovnik_hranica_{ds}"):
+                    ss.pop(k, None)
+                st.toast("Schopnosti dobité na plné použitia.", icon="🔄")
+                st.rerun()
         for cid in active_ids(entry):
             lst = SPECIAL_ABILITIES.get(cid, [])
             if not lst:
