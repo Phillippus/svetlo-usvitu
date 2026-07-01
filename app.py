@@ -436,15 +436,17 @@ def highest_attr(cid):
 
 
 def fallback_option_d(pend, dec):
-    """Vygeneruje skrytú možnosť D, ak ju scéna v dátach nemá (napr. pri bossoch)."""
+    """Vygeneruje skrytú možnosť D, ak ju scéna v dátach nemá (napr. pri bossoch).
+
+    DC je odvodené od atribútu (treba hodiť ~8) — silná, ale NIE okamžitá výhra.
+    """
     cid = pend["postava"]
     p = PARTY_ALL.get(cid, {"meno": cid, "icon": "❔"})
     hv, hk = highest_attr(cid)
-    base = min((o["dc"] for o in dec.get("options", [])), default=15)
     return {
         "label": f"D) {pend['nazov']} — {p['meno']} zažiari silou relikvie",
         "postava_id": cid, "postava_nazov": p["meno"], "postava_ikona": p["icon"],
-        "atribut_key": hk, "atribut_nazov": atr_name(hk), "bonus": 0, "dc": max(1, base - 3),
+        "atribut_key": hk, "atribut_nazov": atr_name(hk), "bonus": 0, "dc": hv + 8,
         "result_success": "Svetlo Úsvitu prežiari scénu — cesta sa otvára a tieň ustupuje pred jasom.",
         "result_near": "Svetlo zažiari, no len nakrátko — stačí to tak-tak.",
         "result_fail": "Svetlo bliklo a zhaslo skôr, než naplno zabralo.",
@@ -1342,6 +1344,9 @@ def render_special_abilities_panel(ds, entry):
                 st.markdown(f"{ab['ikona']} **{ab['nazov']}** {dots}  \n"
                             f"<span style='font-size:0.83rem;color:#9aa'>{ab['popis']}</span>",
                             unsafe_allow_html=True)
+                if ab.get("tip"):
+                    st.markdown(f"<span style='font-size:0.78rem;color:#5b8c5a'>🗓️ {ab['tip']}</span>",
+                                unsafe_allow_html=True)
                 if ab.get("cena_popis") and not unlimited:
                     st.markdown(f"<span style='color:#f85149;font-size:0.8rem'>⚠️ Cena: {ab['cena_popis']}</span>",
                                 unsafe_allow_html=True)

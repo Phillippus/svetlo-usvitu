@@ -200,6 +200,7 @@ SPECIAL_ABILITIES = {
     "vedma": [
         {"id": "temnozrak", "nazov": "Temnozrak", "mechanika": "skryta_moznost_d", "ikona": "🎁",
          "popis": "Odomkne skrytú možnosť D, ktorá inak nie je viditeľná.",
+         "tip": "Najlepšie v tieňových/tajomných scénach — dni 1, 3, 30 majú ručne písanú skrytú cestu.",
          "max_pouziti": 1, "cena": None, "cena_popis": None},
         {"id": "kliatba_osudu", "nazov": "Kliatba osudu", "mechanika": "zniz_dc", "ikona": "🎯",
          "popis": "Zníži DC nasledujúceho rozhodnutia o 15 bodov.", "hodnota": 15,
@@ -209,6 +210,7 @@ SPECIAL_ABILITIES = {
         {"id": "svetlo_usvitu", "nazov": "Svetlo Úsvitu", "mechanika": "skryta_moznost_d", "ikona": "🎁",
          "popis": "Meč Úsvit vydá plné svetlo relikvie a odomkne skrytú možnosť D. "
                   "Proti bossom bez limitu — použiteľné v každom rozhodnutí.",
+         "tip": "Najlepšie proti bossom — dni 22, 42, 57, 60, 61 majú ručne písanú možnosť D pre Bojovníka.",
          "max_pouziti": 1, "boss_unlimited": True, "cena": "minus3_hody_dalsi_den",
          "cena_popis": "Mimo boss dní: nasledujúci deň −3 ku všetkým hodom Bojovníka."},
         {"id": "posledny_strazca", "nazov": "Posledný strážca", "mechanika": "spoj_hody_vsetci", "ikona": "🔗",
@@ -620,7 +622,11 @@ CAMPAIGN.update({
    {"label": "C) Zoslabíte tŕnie kúzlom svetla", "postava": "kuzelnik", "atribut": "magia", "bonus": 0, "dc": 15,
     "result_success": "Tŕnie samo ucúvne pred jasným svetlom.",
     "result_near": "Tŕnie sa stiahne len sčasti - prejdete tesne.",
-    "result_fail": "Kúzlo svetla tŕnie naopak rozhnevá a viac sa zaplete."}]},
+    "result_fail": "Kúzlo svetla tŕnie naopak rozhnevá a viac sa zaplete."}],
+  "option_d": {"label": "D) Vedma temnozrakom nájde skrytý priechod v tieni veže", "postava": "vedma", "atribut": "magia", "bonus": 0, "dc": 12,
+    "result_success": "V tieni pod schodiskom Vedma zbadá pečaťou skrytú chodbu — družina vojde dnu bez jediného škrabanca.",
+    "result_near": "Chodba je zavalená, no cez škáru sa dá pretiahnuť.",
+    "result_fail": "Tieň priechod prekryje skôr, než ho stihnú využiť."}},
  "decision2": {"prompt": "Vo vnútri leží zlomená socha a kovový úlomok. Kto sa k nemu priblíži?", "type": "tajomne", "options": [
    {"label": "A) Najmladší ho odvážne zdvihne", "postava": "medvedik", "atribut": "stastie", "bonus": 0, "dc": 11,
     "result_success": "Úlomok sa v detskej dlani rozžiari - znak, že patrí k veľkej relikvii.",
@@ -1571,7 +1577,11 @@ CAMPAIGN.update({
    {"label": "C) Kúzelník a Bylinkárka spoja svoju mágiu", "postava": "kuzelnik", "atribut": "magia", "bonus": 0, "dc": 21,
     "result_success": "Spoločné kúzlo oslabí tieň zvnútra.",
     "result_near": "Kúzlo tieň oslabí len napoly.",
-    "result_fail": "Mágie sa rozladia a tieň zosilnie."}]},
+    "result_fail": "Mágie sa rozladia a tieň zosilnie."}],
+  "option_d": {"label": "D) Bojovník pozdvihne meč Úsvit a nechá ho zažiariť plným svetlom relikvie", "postava": "bojovnik", "atribut": "sila", "bonus": 0, "dc": 12,
+    "result_success": "Meč Úsvit vzplanie oslepujúcim svetlom — skazený tieň zavíja a jeho clona sa trhá. Bojovník sa vrhne do svetlom prežiarenej trhliny a zasadí ranu priamo do srdca skazy.",
+    "result_near": "Svetlo tieň zatlačí, no ten sa ešte drží — treba dokončiť spoločným úderom.",
+    "result_fail": "Skaza svetlo na chvíľu pohltí a meč pohasne — nápor treba zopakovať."}},
  "decision2": {"prompt": "Malý posol nájde v rumovisku posledný úlomok relikvie. Čo s ním urobí?", "type": "fyzicke", "options": [
    {"label": "A) Hneď ho hodí smerom k družine", "postava": "posol", "atribut": "obratnost", "bonus": 0, "dc": 16,
     "result_success": "Úlomok dopadne presne do rúk Bojovníka - rozhodujúci úder!",
@@ -1970,7 +1980,11 @@ CAMPAIGN.update({
    {"label": "C) Kúzelník ho obkľúči svetelným kruhom", "postava": "kuzelnik", "atribut": "magia", "bonus": 0, "dc": 18,
     "result_success": "Zved je dočasne oslepený a nemôže utiecť.",
     "result_near": "Kruh je slabý - zved vidí medzeru.",
-    "result_fail": "Kúzlo zhasne a zved zmizne v tieni."}]},
+    "result_fail": "Kúzlo zhasne a zved zmizne v tieni."}],
+  "option_d": {"label": "D) Vedma temnozrakom vidí, kde sa zved chystá zmiznúť", "postava": "vedma", "atribut": "magia", "bonus": 0, "dc": 12,
+    "result_success": "Temnozrak odhalí tieňovú skulinu, do ktorej sa chce zved vpariť — Vedma ju zapečatí kliatbou a zved padne družine priamo do rúk.",
+    "result_near": "Vedma skulinu zazrie neskoro, no zved sa aspoň spomalí.",
+    "result_fail": "Zved sa vpari do tieňa skôr, než stihne zasiahnuť."}},
  "decision2": {"prompt": "Zved sa snaží zoslabiť dôveru družiny. Ako zareagujete?", "type": "sociale", "options": [
    {"label": "A) Zostanete pokojní a jednotní", "postava": "bojovnik", "atribut": "charizma", "bonus": 0, "dc": 16,
     "result_success": "Jeho slová na vás nemajú žiadny účinok.",
@@ -2567,7 +2581,11 @@ CAMPAIGN.update({
    {"label": "C) Celá družina spoločne, podľa pravidiel cti", "postava": "bojovnik", "atribut": "charizma", "bonus": 0, "dc": 24,
     "result_success": "Neobvyklé, no pobočník to s úctou rešpektuje.",
     "result_near": "Pobočník súhlasí váhavo - súboj je chaotický.",
-    "result_fail": "Pobočník to považuje za zbabelosť a zúri."}]},
+    "result_fail": "Pobočník to považuje za zbabelosť a zúri."}],
+  "option_d": {"label": "D) Bojovník nechá meč Úsvit vzplanúť plným svetlom relikvie proti ohňu", "postava": "bojovnik", "atribut": "sila", "bonus": 0, "dc": 12,
+    "result_success": "Svetlo Úsvitu prežiari plamene — pobočníkov oheň zbledne pred jasom relikvie a Bojovník cez neho prejde ako cez dym, priamo k jadru žiary.",
+    "result_near": "Svetlo si prerazí cestu plameňmi, no Bojovníka to stojí veľa síl.",
+    "result_fail": "Oheň je prisilný a na chvíľu svetlo meča udusí."}},
  "decision2": {"prompt": "V rozhodujúcej chvíli treba použiť silu úlomku relikvie. Kto ho podrží?", "type": "tajomne", "options": [
    {"label": "A) Najmladší ho zdvihne vysoko nad hlavu", "postava": "medvedik", "atribut": "stastie", "bonus": 0, "dc": 19,
     "result_success": "Oslepujúci záblesk svetla rozhodne súboj v prospech družiny!",
@@ -3307,7 +3325,11 @@ CAMPAIGN.update({
    {"label": "C) Celá družina spojí sily naraz", "postava": "bojovnik", "atribut": "charizma", "bonus": 0, "dc": 24,
     "result_success": "Spoločný nápor je príliš silný aj na tieňového rytiera.",
     "result_near": "Nápor pobočníka zatlačí, no ten sa drží.",
-    "result_fail": "Pobočník nápor odrazí a rozdelí družinu."}]},
+    "result_fail": "Pobočník nápor odrazí a rozdelí družinu."}],
+  "option_d": {"label": "D) Bojovník pozdvihne meč Úsvit — plné svetlo relikvie rozláme rytierovu tieňovú gardu", "postava": "bojovnik", "atribut": "sila", "bonus": 0, "dc": 13,
+    "result_success": "Meč Úsvit vzplanie a tieňový rytier na krok cúvne, oslepený svetlom relikvie. Bojovník mu prerazí gardu a otvorí družine cestu k bráne.",
+    "result_near": "Svetlo rytiera zatlačí, no ten sa spamätá — treba doraziť.",
+    "result_fail": "Rytier zdvihne tieňový štít a svetlo odrazí."}},
  "decision2": {"prompt": "Bývalý sluha tieňa sa rozhodne pomôcť v rozhodujúcej chvíli. Ako?", "type": "tajomne", "options": [
    {"label": "A) Odhalí pobočníkovu slabinu", "postava": "elf", "atribut": "intelekt", "bonus": 0, "dc": 22,
     "result_success": "Kľúčová informácia rozhodne súboj v prospech družiny.",
@@ -3454,7 +3476,11 @@ CAMPAIGN.update({
    {"label": "C) Celá družina sa drží pri sebe ako jeden tím", "postava": "bojovnik", "atribut": "charizma", "bonus": 0, "dc": 27,
     "result_success": "Jednota je silnejšia než akákoľvek jednotlivá zbraň.",
     "result_near": "Jednota drží, no nápor je silný.",
-    "result_fail": "Vlny tieňa družinu na chvíľu rozdelia."}]},
+    "result_fail": "Vlny tieňa družinu na chvíľu rozdelia."}],
+  "option_d": {"label": "D) Bojovník pozdvihne meč Úsvit ako maják — svetlo relikvie zadrží vlny tieňa", "postava": "bojovnik", "atribut": "vydrz", "bonus": 0, "dc": 12,
+    "result_success": "Meč Úsvit zažiari ako maják v tme — vlny tieňa sa oň lámu ako o skalu a družina sa za jeho svetlom preskupí.",
+    "result_near": "Svetlo väčšinu vĺn zadrží, no zopár tieňov prejde.",
+    "result_fail": "Vlny sú primohutné a svetlo meča na okamih pohltia."}},
  "decision2": {"prompt": "Každá postava použije svoju najsilnejšiu schopnosť. Kto vedie útok prvý?", "type": "fyzicke", "options": [
    {"label": "A) Bojovník vedie útok prvý", "postava": "bojovnik", "atribut": "sila", "bonus": 2, "dc": 28,
     "result_success": "Silný úvod, ktorý naštrbí Morgrathovu vlnu tieňa.",
@@ -3501,7 +3527,11 @@ CAMPAIGN.update({
    {"label": "C) Kúzelník nasmeruje silu na jadro tieňa", "postava": "kuzelnik", "atribut": "magia", "bonus": 0, "dc": 30,
     "result_success": "Presný, premyslený úder priamo do srdca Morgrathovej moci.",
     "result_near": "Úder zasiahne okraj jadra.",
-    "result_fail": "Jadro tieňa úder odkloní."}]},
+    "result_fail": "Jadro tieňa úder odkloní."}],
+  "option_d": {"label": "D) Bojovník vloží celú silu relikvie do meča Úsvit a zasadí žiarivý úder", "postava": "bojovnik", "atribut": "sila", "bonus": 0, "dc": 14,
+    "result_success": "Meč Úsvit vzplanie svetlom celej relikvie — žiarivý úder rozotne Morgrathov tieň a do trhliny sa vlial úsvit. Tieňový Pán zavíja pod čistým svetlom.",
+    "result_near": "Úder Morgratha zatlačí na okraj zániku — treba ešte jeden.",
+    "result_fail": "Morgrath žiaru na chvíľu pohltí a úder odkloní."}},
  "decision2": {"prompt": "Čo si v tejto chvíli družina spoločne pripomenie?", "type": "sociale", "options": [
    {"label": "A) Sľub spojencov pri zlatom ohni v Taliansku", "postava": "bojovnik", "atribut": "charizma", "bonus": 0, "dc": 28,
     "result_success": "Spomienka na priateľstvo dodá poslednú potrebnú silu.",
@@ -4027,8 +4057,12 @@ def _norm_option(o, tier=None, rebase=False):
     }
 
 
-def _norm_option_d(o):
-    """Skrytá možnosť D — podporuje normalizovaný (postava_id/atribut_key) aj raw formát."""
+def _norm_option_d(o, tier=None):
+    """Skrytá možnosť D — podporuje normalizovaný (postava_id/atribut_key) aj raw formát.
+
+    Ak je zadaný raw formát (postava/atribut/dc), DC prejde rovnakou tier úpravou
+    ako bežné možnosti — inak by šlo o takmer okamžitý úspech.
+    """
     if not o:
         return None
     pid = o.get("postava_id") or o.get("postava")
@@ -4037,12 +4071,15 @@ def _norm_option_d(o):
     bonus = o.get("bonus")
     if bonus is None:
         bonus = sum(b.get("hodnota", 0) for b in o.get("bonusy", []))
+    dc = o["dc"]
+    if tier and "postava" in o and "atribut" in o:
+        dc = _adjust_dc({"postava": pid, "atribut": ak, "bonus": bonus, "dc": o["dc"]}, tier)
     return {
         "label": o.get("label", "D) Skrytá možnosť"),
         "postava_id": pid, "postava_nazov": p["meno"], "postava_ikona": p["icon"],
         "atribut_key": ak,
         "atribut_nazov": STAT_NAMES[STAT_KEYS.index(ak)] if ak in STAT_KEYS else ak,
-        "bonus": bonus, "dc": o["dc"],
+        "bonus": bonus, "dc": dc,
         "result_success": o["result_success"],
         "result_near": o.get("result_near", o["result_success"]),
         "result_fail": o.get("result_fail", "Skrytá cesta zlyhala."),
@@ -5357,7 +5394,7 @@ def build_decisions(ds, entry):
             "typ": d.get("type", "fyzicke"),
             "prompt": d["prompt"],
             "options": [_norm_option(o, tier) for o in d["options"]],
-            "option_d": _norm_option_d(d.get("option_d")),
+            "option_d": _norm_option_d(d.get("option_d"), tier),
         })
     # extra rozhodnutia pre ťažšie dni (DC odvodené od atribútu postavy podľa tieru)
     xi = 4
