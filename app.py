@@ -1271,7 +1271,7 @@ def use_ability(cid, ab, ds, entry, extra, free=False):
         msg = f"🛡️ Obor prevzal {absorb} Výdrže za skupinu."
     elif mech in NEXT_DECISION_MECHS or mech in REROLL_MECHS:
         ss["pending_ability"] = {"postava": cid, "id": ab["id"], "mechanika": mech,
-                                 "hodnota": ab.get("hodnota", 0), "nazov": ab["nazov"]}
+                                 "hodnota": ab.get("hodnota", 0), "nazov": ab["nazov"], "ds": ds}
         msg = f"{ab['ikona']} {ab['nazov']} pripravená — prejaví sa pri rozhodnutí."
 
     # ── ceny (na boss dňoch je Svetlo Úsvitu zadarmo → free) ──
@@ -1312,11 +1312,19 @@ def render_ability_targets(cid, ab, entry):
 
 def render_special_abilities_panel(ds, entry):
     ss = st.session_state
+    # čakajúca schopnosť z iného dňa sa zruší (aby „neostala všade")
     pend = ss.get("pending_ability")
+    if pend and pend.get("ds") not in (None, ds):
+        ss.pop("pending_ability", None)
+        pend = None
     if pend:
         kde = ("použije sa na práve hodené rozhodnutie"
                if pend["mechanika"] in REROLL_MECHS else "prejaví sa pri nasledujúcom rozhodnutí")
-        st.info(f"⚡ Pripravená schopnosť: **{pend['nazov']}** — {kde}.")
+        c1, c2 = st.columns([4, 1])
+        c1.info(f"⚡ Pripravená schopnosť: **{pend['nazov']}** — {kde}.")
+        if c2.button("✖ Zrušiť", key=f"cancel_pending_{ds}"):
+            ss.pop("pending_ability", None)
+            st.rerun()
     if ss.get(f"bojovnik_hranica_{ds}"):
         st.warning("🛡️ Bojovník je na hranici (1 život) — ďalší zásah ho dnes vyradí z boja.")
     with st.expander("⚡ Špeciálne schopnosti", expanded=False):
