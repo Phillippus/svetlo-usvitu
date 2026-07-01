@@ -148,6 +148,10 @@ def init_state():
 # =========================================================================
 #  UKLADANIE / NAČÍTANIE POSTUPU (JSON súbor — offline, bez DB)
 # =========================================================================
+SAVE_VERSION = 2
+# migrácia v2: zvýšené počty použití skrytej cesty (Vedma temnozrak 1→3, Druid zvierací prieskum 1→2)
+_ABILITY_USE_BUMP = {"temnozrak": 2, "zvieraci_prieskum": 1}
+
 SAVE_CORE = ["stats", "hp", "gold", "inventory", "milestone_points",
              "abilities", "active_effects", "temp_bonusy", "pending_ability"]
 PROGRESS_PREFIXES = ("res_", "res2_", "crit1_", "predmet_done_", "nakup_done_",
@@ -162,7 +166,7 @@ def serialize_state():
     progress = {k: ss[k] for k in ss
                 if isinstance(k, str) and k.startswith(PROGRESS_PREFIXES)}
     payload = {
-        "app": "svetlo-usvitu", "version": 1,
+        "app": "svetlo-usvitu", "version": SAVE_VERSION,
         "saved_at": datetime.datetime.now().isoformat(timespec="seconds"),
         "core": core, "progress": progress,
     }
@@ -180,6 +184,14 @@ def load_state(raw):
     for cid, items in ss.get("inventory", {}).items():
         ss["inventory"][cid] = [it if isinstance(it, dict) else normalize_item({"nazov": str(it)})
                                 for it in items]
+    # migrácia v2: dorovnaj zvýšené počty použití skrytej cesty aj rozohraným hrám
+    if obj.get("version", 1) < 2:
+        ab = ss.get("abilities") or {}
+        for pid, lst in SPECIAL_ABILITIES.items():
+            for a in lst:
+                bump = _ABILITY_USE_BUMP.get(a["id"])
+                if bump and pid in ab and a["id"] in ab[pid]:
+                    ab[pid][a["id"]] = min(a["max_pouziti"], ab[pid][a["id"]] + bump)
     # nahraď progress kľúče uloženými
     for k in [k for k in ss if isinstance(k, str) and k.startswith(PROGRESS_PREFIXES)]:
         ss.pop(k, None)
