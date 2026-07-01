@@ -152,7 +152,8 @@ SAVE_CORE = ["stats", "hp", "gold", "inventory", "milestone_points",
              "abilities", "active_effects", "temp_bonusy", "pending_ability"]
 PROGRESS_PREFIXES = ("res_", "res2_", "crit1_", "predmet_done_", "nakup_done_",
                      "levelup20_", "balloons_", "zlato_done_",
-                     "stastna_kocka_", "dvojita_odmena_", "bojovnik_hranica_", "skip_")
+                     "stastna_kocka_", "dvojita_odmena_", "bojovnik_hranica_", "skip_",
+                     "skryta_den_")
 
 
 def serialize_state():
@@ -476,17 +477,20 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
     st.markdown(f"**{dec['prompt']}**")
 
     if reskey not in ss:
-        # ── čakajúca špeciálna schopnosť, ktorá sa prejaví na tomto rozhodnutí ──
         dc_delta = 0
         active_od = None
+        # skrytá cesta je aktívna na CELÝ deň (denný flag) → možnosť D v každom rozhodnutí
+        sd = ss.get(f"skryta_den_{ds}")
+        if sd and not positive:
+            active_od = dec.get("option_d") or fallback_option_d(
+                {"postava": sd["postava"], "nazov": sd["nazov"]}, dec)
+            st.success(f"🎁 **{sd['nazov']}** aktívna dnes — skrytá možnosť D je v každom rozhodnutí.")
+        # ── čakajúca špeciálna schopnosť, ktorá sa prejaví na tomto rozhodnutí ──
         if pend and not positive and pend["mechanika"] in NEXT_DECISION_MECHS:
             mech = pend["mechanika"]
             if mech == "zniz_dc":
                 dc_delta = -int(pend.get("hodnota", 0))
                 st.info(f"🎯 **{pend['nazov']}** aktívna — DC −{abs(dc_delta)} pre toto rozhodnutie.")
-            elif mech == "skryta_moznost_d":
-                active_od = dec.get("option_d") or fallback_option_d(pend, dec)
-                st.success(f"🎁 **{pend['nazov']}** — odomknutá skrytá možnosť D!")
             elif mech in ("auto_uspech", "auto_uspech_skupina"):
                 koho = "celej skupiny" if mech == "auto_uspech_skupina" else PARTY_ALL[pend['postava']]['meno']
                 st.success(f"✅ **{pend['nazov']}** — vyber možnosť a potvrď automatický úspech ({koho}).")
@@ -526,8 +530,8 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
                 res["idx"] = idx
                 res["opt"] = opt_disp          # snapshot pre zobrazenie (aj pri generovanej D)
                 ss[reskey] = res
-                if dc_delta or (pend and pend.get("mechanika") == "skryta_moznost_d"):
-                    ss.pop("pending_ability", None)  # spotrebuj
+                if dc_delta:                   # zníženie DC platí len na toto rozhodnutie
+                    ss.pop("pending_ability", None)
                 st.rerun()
         return False
 
@@ -1269,6 +1273,9 @@ def use_ability(cid, ab, ds, entry, extra, free=False):
         oh = ss["hp"][cid]
         oh["current"] = max(0, oh["current"] - absorb)
         msg = f"🛡️ Obor prevzal {absorb} Výdrže za skupinu."
+    elif mech == "skryta_moznost_d":
+        ss[f"skryta_den_{ds}"] = {"postava": cid, "nazov": ab["nazov"]}
+        msg = f"🎁 {ab['nazov']} — skrytá cesta odomknutá na CELÝ deň, v každom rozhodnutí."
     elif mech in NEXT_DECISION_MECHS or mech in REROLL_MECHS:
         ss["pending_ability"] = {"postava": cid, "id": ab["id"], "mechanika": mech,
                                  "hodnota": ab.get("hodnota", 0), "nazov": ab["nazov"], "ds": ds}
@@ -1310,6 +1317,12 @@ def render_ability_targets(cid, ab, entry):
     return extra
 
 
+def day_has_hidden_path_for(entry, cid):
+    """Má daný deň ručne písanú skrytú cestu (option_d) pre túto postavu?"""
+    return any((entry.get(f"decision{i}") or {}).get("option_d", {}).get("postava") == cid
+               for i in (1, 2, 3))
+
+
 def render_special_abilities_panel(ds, entry):
     ss = st.session_state
     # čakajúca schopnosť z iného dňa sa zruší (aby „neostala všade")
@@ -1347,6 +1360,9 @@ def render_special_abilities_panel(ds, entry):
             for ab in lst:
                 rem = ss["abilities"].setdefault(cid, {}).get(ab["id"], ab["max_pouziti"])
                 unlimited = bool(ab.get("boss_unlimited") and is_boss)
+                is_skryta = ab["mechanika"] == "skryta_moznost_d"
+                eligible_day = (not is_skryta) or day_has_hidden_path_for(entry, cid)
+                active_today = is_skryta and ss.get(f"skryta_den_{ds}", {}).get("postava") == cid
                 dots = "♾️ <span style='color:#d4a017'>(boss — bez limitu)</span>" if unlimited \
                     else "🟢" * rem + "⚪" * (ab["max_pouziti"] - rem)
                 st.markdown(f"{ab['ikona']} **{ab['nazov']}** {dots}  \n"
@@ -1358,7 +1374,14 @@ def render_special_abilities_panel(ds, entry):
                 if ab.get("cena_popis") and not unlimited:
                     st.markdown(f"<span style='color:#f85149;font-size:0.8rem'>⚠️ Cena: {ab['cena_popis']}</span>",
                                 unsafe_allow_html=True)
-                enabled = unlimited or rem > 0
+                if is_skryta and not eligible_day:
+                    st.markdown("<span style='color:#f85149;font-size:0.78rem'>🔒 Dnes nedostupné — "
+                                "skrytá cesta funguje len vo vybraných dňoch (viď 🗓️).</span>",
+                                unsafe_allow_html=True)
+                if active_today:
+                    st.markdown("<span style='color:#3fb950;font-size:0.78rem'>✅ Aktívna dnes — "
+                                "skrytá možnosť D je v každom rozhodnutí.</span>", unsafe_allow_html=True)
+                enabled = (unlimited or rem > 0) and eligible_day and not active_today
                 extra = render_ability_targets(cid, ab, entry) if enabled else {}
                 if st.button("Použiť", key=f"useab_{ds}_{cid}_{ab['id']}", disabled=not enabled):
                     msg = use_ability(cid, ab, ds, entry, extra, free=unlimited)
@@ -1408,7 +1431,7 @@ def render_gm_calendar(entry):
 
 RESET_PREFIXES = ("res_", "res2_", "crit1_", "predmet_done_", "nakup_done_",
                   "buy_", "buyer_", "buyerr_", "pay_", "shopdone_", "give_",
-                  "leave_", "levelup20_", "sc_", "balloons_", "zlato_done_",
+                  "leave_", "levelup20_", "sc_", "balloons_", "zlato_done_", "skryta_den_",
                   "d1_", "d2_", "d3_", "res1_", "res3_")
 
 
