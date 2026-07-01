@@ -201,7 +201,7 @@ SPECIAL_ABILITIES = {
         {"id": "temnozrak", "nazov": "Temnozrak", "mechanika": "skryta_moznost_d", "ikona": "🎁",
          "popis": "Odomkne skrytú možnosť D, ktorá inak nie je viditeľná.",
          "tip": "Najlepšie v tieňových/tajomných scénach — dni 1, 3, 30, 46, 53, 59 majú ručne písanú skrytú cestu.",
-         "max_pouziti": 1, "cena": None, "cena_popis": None},
+         "max_pouziti": 3, "cena": None, "cena_popis": None},
         {"id": "kliatba_osudu", "nazov": "Kliatba osudu", "mechanika": "zniz_dc", "ikona": "🎯",
          "popis": "Zníži DC nasledujúceho rozhodnutia o 15 bodov.", "hodnota": 15,
          "max_pouziti": 1, "cena": None, "cena_popis": None},
@@ -286,7 +286,7 @@ SPECIAL_ABILITIES = {
         {"id": "zvieraci_prieskum", "nazov": "Zvierací prieskum", "mechanika": "skryta_moznost_d", "ikona": "🎁",
          "popis": "Havran Čierny Pierko odhalí skrytú možnosť D.",
          "tip": "Najlepšie na prieskum — dni 19, 20 (Taliansko) majú ručne písanú skrytú cestu havrana.",
-         "max_pouziti": 1, "cena": None, "cena_popis": None},
+         "max_pouziti": 2, "cena": None, "cena_popis": None},
     ],
     "posol": [
         {"id": "tajny_unik", "nazov": "Tajný únik", "mechanika": "preskocit_rozhodnutie", "ikona": "⏭️",
