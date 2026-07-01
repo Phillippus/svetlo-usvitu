@@ -207,9 +207,10 @@ SPECIAL_ABILITIES = {
     ],
     "bojovnik": [
         {"id": "svetlo_usvitu", "nazov": "Svetlo Úsvitu", "mechanika": "skryta_moznost_d", "ikona": "🎁",
-         "popis": "Meč Úsvit vydá plné svetlo relikvie a odomkne skrytú možnosť D.",
-         "max_pouziti": 1, "cena": "minus3_hody_dalsi_den",
-         "cena_popis": "Nasledujúci deň −3 ku všetkým hodom Bojovníka."},
+         "popis": "Meč Úsvit vydá plné svetlo relikvie a odomkne skrytú možnosť D. "
+                  "Proti bossom bez limitu — použiteľné v každom rozhodnutí.",
+         "max_pouziti": 1, "boss_unlimited": True, "cena": "minus3_hody_dalsi_den",
+         "cena_popis": "Mimo boss dní: nasledujúci deň −3 ku všetkým hodom Bojovníka."},
         {"id": "posledny_strazca", "nazov": "Posledný strážca", "mechanika": "spoj_hody_vsetci", "ikona": "🔗",
          "popis": "Všetky postavy pridajú svoj najvyšší atribút — výsledky sa sčítajú.",
          "max_pouziti": 1, "cena": "bojovnik_1_zivot",

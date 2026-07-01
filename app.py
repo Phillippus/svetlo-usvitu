@@ -435,6 +435,22 @@ def highest_attr(cid):
     return s[k], k
 
 
+def fallback_option_d(pend, dec):
+    """Vygeneruje skrytú možnosť D, ak ju scéna v dátach nemá (napr. pri bossoch)."""
+    cid = pend["postava"]
+    p = PARTY_ALL.get(cid, {"meno": cid, "icon": "❔"})
+    hv, hk = highest_attr(cid)
+    base = min((o["dc"] for o in dec.get("options", [])), default=15)
+    return {
+        "label": f"D) {pend['nazov']} — {p['meno']} zažiari silou relikvie",
+        "postava_id": cid, "postava_nazov": p["meno"], "postava_ikona": p["icon"],
+        "atribut_key": hk, "atribut_nazov": atr_name(hk), "bonus": 0, "dc": max(1, base - 3),
+        "result_success": "Svetlo Úsvitu prežiari scénu — cesta sa otvára a tieň ustupuje pred jasom.",
+        "result_near": "Svetlo zažiari, no len nakrátko — stačí to tak-tak.",
+        "result_fail": "Svetlo bliklo a zhaslo skôr, než naplno zabralo.",
+    }
+
+
 NEXT_DECISION_MECHS = ("zniz_dc", "skryta_moznost_d", "auto_uspech", "auto_uspech_skupina",
                        "preskocit_rozhodnutie", "spoj_hody_vsetci", "spoj_hody_dvaja")
 REROLL_MECHS = ("prehodenie_hodu", "prehodenie_hodu_plus5")
@@ -460,18 +476,15 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
     if reskey not in ss:
         # ── čakajúca špeciálna schopnosť, ktorá sa prejaví na tomto rozhodnutí ──
         dc_delta = 0
+        active_od = None
         if pend and not positive and pend["mechanika"] in NEXT_DECISION_MECHS:
             mech = pend["mechanika"]
             if mech == "zniz_dc":
                 dc_delta = -int(pend.get("hodnota", 0))
                 st.info(f"🎯 **{pend['nazov']}** aktívna — DC −{abs(dc_delta)} pre toto rozhodnutie.")
             elif mech == "skryta_moznost_d":
-                if dec.get("option_d"):
-                    st.success(f"🎁 **{pend['nazov']}** — odomknutá skrytá možnosť D!")
-                else:
-                    st.info(f"🎁 **{pend['nazov']}**: v tejto scéne nie je skrytá cesta.")
-                    ss.pop("pending_ability", None)
-                    pend = None
+                active_od = dec.get("option_d") or fallback_option_d(pend, dec)
+                st.success(f"🎁 **{pend['nazov']}** — odomknutá skrytá možnosť D!")
             elif mech in ("auto_uspech", "auto_uspech_skupina"):
                 koho = "celej skupiny" if mech == "auto_uspech_skupina" else PARTY_ALL[pend['postava']]['meno']
                 st.success(f"✅ **{pend['nazov']}** — vyber možnosť a potvrď automatický úspech ({koho}).")
@@ -494,10 +507,10 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
             elif mech in ("spoj_hody_vsetci", "spoj_hody_dvaja"):
                 return render_spoj_decision(n, ds, dec, accent, entry, pend)
 
-        # ── normálne možnosti (s prípadným znížením DC) ──
+        # ── normálne možnosti (s prípadným znížením DC + skrytou možnosťou D) ──
         opts = list(dec["options"])
-        if dec.get("option_d") and pend and pend.get("mechanika") == "skryta_moznost_d":
-            opts = opts + [dec["option_d"]]
+        if active_od:
+            opts = opts + [active_od]
         for idx, opt in enumerate(opts):
             opt_disp = dict(opt)
             if dc_delta:
@@ -509,8 +522,7 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
                 roll = animated_roll(ph, accent)
                 res = evaluate(opt_disp, roll, opt["postava_id"], is_combat, ds)
                 res["idx"] = idx
-                if idx >= len(dec["options"]):       # použila sa skrytá možnosť D
-                    res["option_d"] = True
+                res["opt"] = opt_disp          # snapshot pre zobrazenie (aj pri generovanej D)
                 ss[reskey] = res
                 if dc_delta or (pend and pend.get("mechanika") == "skryta_moznost_d"):
                     ss.pop("pending_ability", None)  # spotrebuj
@@ -522,7 +534,7 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
     opts_all = list(dec["options"])
     if dec.get("option_d"):
         opts_all = opts_all + [dec["option_d"]]
-    opt = opts_all[res["idx"]] if res["idx"] < len(opts_all) else dec["options"][0]
+    opt = res.get("opt") or (opts_all[res["idx"]] if res["idx"] < len(opts_all) else dec["options"][0])
     st.markdown(f"➡️ **{opt['label']}** · {opt['postava_ikona']} {opt['postava_nazov']}")
     if res.get("auto"):
         st.success(f"✅ Automatický úspech — {res.get('auto_note', 'špeciálna schopnosť')} "
@@ -641,7 +653,7 @@ def render_spoj_decision(n, ds, dec, accent, entry, pend):
 def render_second_chance(n, ds, dec, accent, entry):
     ss = st.session_state
     res2key = f"res2_{ds}_{dec['id']}"
-    base_dc = dec["options"][ss[f"res_{ds}_{dec['id']}"]["idx"]]["dc"]
+    base_dc = ss[f"res_{ds}_{dec['id']}"]["dc"]
     new_dc = base_dc + 5
 
     st.markdown("---")
@@ -1214,7 +1226,7 @@ def render_zlato_odmena(ds, entry):
 # =========================================================================
 #  ŠPECIÁLNE SCHOPNOSTI — panel + vykonanie
 # =========================================================================
-def use_ability(cid, ab, ds, entry, extra):
+def use_ability(cid, ab, ds, entry, extra, free=False):
     ss = st.session_state
     mech = ab["mechanika"]
     ids = active_ids(entry)
@@ -1260,8 +1272,8 @@ def use_ability(cid, ab, ds, entry, extra):
                                  "hodnota": ab.get("hodnota", 0), "nazov": ab["nazov"]}
         msg = f"{ab['ikona']} {ab['nazov']} pripravená — prejaví sa pri rozhodnutí."
 
-    # ── ceny ──
-    cena = ab.get("cena")
+    # ── ceny (na boss dňoch je Svetlo Úsvitu zadarmo → free) ──
+    cena = None if free else ab.get("cena")
     if cena == "minus3_hody_dalsi_den":
         tom = (datetime.date.fromisoformat(ds) + datetime.timedelta(days=1)).isoformat()
         ss["active_effects"].setdefault(tom, []).append(
@@ -1320,20 +1332,25 @@ def render_special_abilities_panel(ds, entry):
             lst = SPECIAL_ABILITIES.get(cid, [])
             if not lst:
                 continue
+            is_boss = day_tier(entry) == "hlavny_boss"
             st.markdown(f"**{PARTY_ALL[cid]['icon']} {PARTY_ALL[cid]['meno']}**")
             for ab in lst:
                 rem = ss["abilities"].setdefault(cid, {}).get(ab["id"], ab["max_pouziti"])
-                dots = "🟢" * rem + "⚪" * (ab["max_pouziti"] - rem)
+                unlimited = bool(ab.get("boss_unlimited") and is_boss)
+                dots = "♾️ <span style='color:#d4a017'>(boss — bez limitu)</span>" if unlimited \
+                    else "🟢" * rem + "⚪" * (ab["max_pouziti"] - rem)
                 st.markdown(f"{ab['ikona']} **{ab['nazov']}** {dots}  \n"
                             f"<span style='font-size:0.83rem;color:#9aa'>{ab['popis']}</span>",
                             unsafe_allow_html=True)
-                if ab.get("cena_popis"):
+                if ab.get("cena_popis") and not unlimited:
                     st.markdown(f"<span style='color:#f85149;font-size:0.8rem'>⚠️ Cena: {ab['cena_popis']}</span>",
                                 unsafe_allow_html=True)
-                extra = render_ability_targets(cid, ab, entry) if rem > 0 else {}
-                if st.button("Použiť", key=f"useab_{ds}_{cid}_{ab['id']}", disabled=(rem <= 0)):
-                    msg = use_ability(cid, ab, ds, entry, extra)
-                    ss["abilities"][cid][ab["id"]] = rem - 1
+                enabled = unlimited or rem > 0
+                extra = render_ability_targets(cid, ab, entry) if enabled else {}
+                if st.button("Použiť", key=f"useab_{ds}_{cid}_{ab['id']}", disabled=not enabled):
+                    msg = use_ability(cid, ab, ds, entry, extra, free=unlimited)
+                    if not unlimited:
+                        ss["abilities"][cid][ab["id"]] = rem - 1
                     st.toast(msg, icon="⚡")
                     st.rerun()
             st.markdown("<hr style='margin:3px 0;opacity:0.2'>", unsafe_allow_html=True)
