@@ -4078,11 +4078,12 @@ def _norm_option(o, tier=None, rebase=False):
     }
 
 
-def _norm_option_d(o, tier=None):
-    """Skrytá možnosť D — podporuje normalizovaný (postava_id/atribut_key) aj raw formát.
+def _norm_option_d(o, tier=None, base_dcs=None):
+    """Skrytá možnosť D — podporuje normalizovaný aj raw formát.
 
-    Ak je zadaný raw formát (postava/atribut/dc), DC prejde rovnakou tier úpravou
-    ako bežné možnosti — inak by šlo o takmer okamžitý úspech.
+    DC: skrytá cesta má byť o 2 nižšie než NAJĽAHŠIA bežná možnosť rozhodnutia
+    (miernou výhodou, nie okamžitým úspechom). Ak base_dcs nie je, fallback na
+    tier úpravu / raw DC.
     """
     if not o:
         return None
@@ -4092,9 +4093,15 @@ def _norm_option_d(o, tier=None):
     bonus = o.get("bonus")
     if bonus is None:
         bonus = sum(b.get("hodnota", 0) for b in o.get("bonusy", []))
-    dc = o["dc"]
-    if tier and "postava" in o and "atribut" in o:
+    if base_dcs:
+        m = min(base_dcs)
+        # skrytá cesta: väčšinou o 2 nižšie, občas o 1 (deterministicky ~2/3 : 1/3)
+        znizenie = 1 if m % 3 == 0 else 2
+        dc = max(3, m - znizenie)
+    elif tier and "postava" in o and "atribut" in o:
         dc = _adjust_dc({"postava": pid, "atribut": ak, "bonus": bonus, "dc": o["dc"]}, tier)
+    else:
+        dc = o.get("dc", 15)
     return {
         "label": o.get("label", "D) Skrytá možnosť"),
         "postava_id": pid, "postava_nazov": p["meno"], "postava_ikona": p["icon"],
@@ -4152,8 +4159,11 @@ def _xo(label, postava, atribut, dc, succ, near, fail, bonus=0):
             "result_success": succ, "result_near": near, "result_fail": fail}
 
 
-def _xd(prompt, typ, *opts):
-    return {"prompt": prompt, "type": typ, "options": list(opts)}
+def _xd(prompt, typ, *opts, option_d=None):
+    d = {"prompt": prompt, "type": typ, "options": list(opts)}
+    if option_d is not None:
+        d["option_d"] = option_d
+    return d
 
 
 EXTRA_DECISIONS = {
@@ -5410,22 +5420,25 @@ def build_decisions(ds, entry):
         d = entry.get(f"decision{i}")
         if not d:
             continue
+        opts_norm = [_norm_option(o, tier) for o in d["options"]]
         out.append({
             "id": f"d{i}",
             "typ": d.get("type", "fyzicke"),
             "prompt": d["prompt"],
-            "options": [_norm_option(o, tier) for o in d["options"]],
-            "option_d": _norm_option_d(d.get("option_d"), tier),
+            "options": opts_norm,
+            "option_d": _norm_option_d(d.get("option_d"), tier, [o["dc"] for o in opts_norm]),
         })
     # extra rozhodnutia pre ťažšie dni (DC odvodené od atribútu postavy podľa tieru)
     xi = 4
     for d in (EXTRA_DECISIONS.get(ds, []) + EXTRA_DECISIONS_VI.get(ds, [])
               + EXTRA_DECISIONS_5.get(ds, [])):
+        opts_norm = [_norm_option(o, tier, rebase=True) for o in d["options"]]
         out.append({
             "id": f"d{xi}",
             "typ": d.get("type", "fyzicke"),
             "prompt": d["prompt"],
-            "options": [_norm_option(o, tier, rebase=True) for o in d["options"]],
+            "options": opts_norm,
+            "option_d": _norm_option_d(d.get("option_d"), tier, [o["dc"] for o in opts_norm]),
         })
         xi += 1
     # detské — posledné z rozhodnutí (pred predmetom a nákupom); DC sa NEzvyšuje (pre najmenších)

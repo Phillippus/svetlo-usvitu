@@ -444,10 +444,13 @@ def fallback_option_d(pend, dec):
     cid = pend["postava"]
     p = PARTY_ALL.get(cid, {"meno": cid, "icon": "❔"})
     hv, hk = highest_attr(cid)
+    dcs = [o["dc"] for o in dec.get("options", [])] or [hv + 10]
+    m = min(dcs)
+    dc = max(3, m - (1 if m % 3 == 0 else 2))     # o 1-2 nižšie než najľahšia bežná
     return {
         "label": f"D) {pend['nazov']} — {p['meno']} zažiari silou relikvie",
         "postava_id": cid, "postava_nazov": p["meno"], "postava_ikona": p["icon"],
-        "atribut_key": hk, "atribut_nazov": atr_name(hk), "bonus": 0, "dc": hv + 8,
+        "atribut_key": hk, "atribut_nazov": atr_name(hk), "bonus": 0, "dc": dc,
         "result_success": "Svetlo Úsvitu prežiari scénu — cesta sa otvára a tieň ustupuje pred jasom.",
         "result_near": "Svetlo zažiari, no len nakrátko — stačí to tak-tak.",
         "result_fail": "Svetlo bliklo a zhaslo skôr, než naplno zabralo.",
