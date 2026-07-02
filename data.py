@@ -5701,27 +5701,6 @@ _BOJ_HINTS = ("k útoku", "k streľbe", "k boju", "v boji", "zblízka", "úder",
               "nôž", "nož", "šíp", "kuš", "čepe", "kuša", "sekera", "prak")
 
 
-# Klasifikácia predmetu do slotu výbavy:
-#   'zbran'   → ruka (hlavná/vedľajšia), max 2 zbrane spolu
-#   'zbroj'   → 1 slot na zbroj
-#   'doplnok' → bez limitu (opasky, prstene, amulety, plášte, mapy…)
-_ARMOR_HINTS = ("zbroj", "brnenie", "pancier")
-_WEAPON_HINTS = ("meč", "luk", "dýka", "dyk", "palica", "palcát", "kyjak", "kopij",
-                 "kopija", "kosák", "nôž", "nož", "kuša", "kuš", "sekera", "prak",
-                 "pištoľ", "reťazová zbraň", "čepeľ", "dlhý luk", "štít", "palcát",
-                 "runový kameň", "kameň úsvitu")
-
-
-def item_slot(item):
-    """Vráti slot predmetu: 'zbran' (do ruky), 'zbroj', alebo 'doplnok' (bez limitu)."""
-    naz = (item.get("nazov", "") if isinstance(item, dict) else str(item)).lower()
-    if any(h in naz for h in _ARMOR_HINTS):
-        return "zbroj"
-    if any(h in naz for h in _WEAPON_HINTS):
-        return "zbran"
-    return "doplnok"
-
-
 def parse_mods(text):
     """Z textu ako „+2 Sila, −1 Obratnosť" vytiahne (atribut, hodnota) páry."""
     mods = []
