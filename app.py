@@ -484,7 +484,59 @@ def render_decision(n, ds, dec, accent, entry, gm):
         return render_predmet_decision(n, ds, dec, entry, gm)
     if t == "nakup":
         return render_nakup_decision(n, ds, dec, entry)
+    if t == "timova":
+        return render_team_decision(n, ds, dec, accent)
     return render_skill_decision(n, ds, dec, accent, entry, positive=(t == "detske"))
+
+
+def render_team_decision(n, ds, dec, accent):
+    """Tímová scéna — viac postáv spojí atribúty, hádže sa JEDNOU kockou proti vysokému DC."""
+    ss = st.session_state
+    reskey = f"res_{ds}_{dec['id']}"
+    st.markdown(f"#### 🤝 · Tímová scéna {n}")
+    st.markdown(f"**{dec['prompt']}**")
+    parts, suma = [], 0
+    for c in dec["contribs"]:
+        val = ss["stats"].get(c["postava_id"], {}).get(c["atribut_key"], 0)
+        suma += val
+        parts.append(f"{c['postava_ikona']} {short_name(c['postava_id'])} "
+                     f"{atr_name(c['atribut_key'])} **{val}**")
+    dc = dec["dc"]
+    st.markdown("🤝 **Spojené sily:** " + "  +  ".join(parts) + f"  =  **{suma}**")
+    treba = max(1, dc - suma)
+    st.caption(f"🎯 Cieľ **DC {dc}** · jeden spoločný hod d20 · "
+               + (f"potrebujete hodiť **{treba}+** (alebo 20 = istý úspech)." if treba <= 20
+                  else f"súčet je nízky — uspejete len hodom **20**. Zvýšte atribúty (míľnikové body)!"))
+
+    if reskey not in ss:
+        if st.button("🎲 Hodiť tímovo (jedna kocka)", key=f"tbtn_{ds}_{dec['id']}"):
+            ph = st.empty()
+            roll = animated_roll(ph, accent)
+            total = suma + roll
+            if roll == 20 or total >= dc:
+                outcome = "success"
+            elif total >= dc - 3:
+                outcome = "near"
+            else:
+                outcome = "fail"
+            ss[reskey] = {"roll": roll, "suma": suma, "total": total, "dc": dc, "outcome": outcome}
+            st.rerun()
+        return False
+
+    r = ss[reskey]
+    krit = " 💥 **hod 20!**" if r["roll"] == 20 else ""
+    st.markdown(f"🎲 Hod **{r['roll']}** + spojené **{r['suma']}** = **{r['total']}**  vs  DC {r['dc']}{krit}")
+    if r["outcome"] == "success":
+        st.success(dec["result_success"])
+    elif r["outcome"] == "near":
+        st.warning(dec["result_near"])
+        st.caption("🟠 Tesný neúspech — GM môže dať družine ešte jeden spoločný pokus.")
+    else:
+        st.error(dec["result_fail"])
+    if st.button(f"↩️ Znova tímovú scénu {n}", key=f"treset_{ds}_{dec['id']}"):
+        ss.pop(reskey, None)
+        st.rerun()
+    return True
 
 
 def highest_attr(cid):
@@ -1713,7 +1765,7 @@ def render_gm_calendar(entry):
         for ds, e in days:
             tier = day_tier(e)
             decs = build_decisions(ds, e)
-            bezne = sum(1 for d in decs if d["typ"] not in ("predmet", "nakup", "detske"))
+            bezne = sum(1 for d in decs if d["typ"] not in ("predmet", "nakup", "detske", "timova"))
             target = target_bezne(e)
             mark = "✅" if bezne >= target else f"⚠️ {bezne}/{target}"
             d = datetime.date.fromisoformat(ds)

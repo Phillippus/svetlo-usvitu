@@ -34,6 +34,9 @@ streamlit run app.py
 - **🛒 Trhy (10 typov):** Dedinský, Lesný druidov, Alchymistický, Klanový (Taliansko), Prístavný,
   Kováč, Tajomný obchodník, Putovná karavána, Hradný arzenál, Chrámový — nákup s platbou
   **osobné / klanové / kombinácia**.
+- **🤝 Tímové scény (bossovia/mini-bossovia):** viac postáv **spojí atribúty** a hádže sa **jednou
+  kockou** proti veľmi vysokému DC (napr. Bojovník+Obor+Veliteľ — sila). V Taliansku plný roster,
+  inak malá družina; taliansky boss má dve. Hod 20 = istý úspech.
 - **🎁 Predmet:** rozhodnutie „komu ho dáte" — pridelí sa do inventára vybranej postavy.
 - **⚙️ GM mód:** diskrétny prepínač úplne dole v sidebari. Zapne **GM kalendár** s farbami dní
   (🔴 Boss · 🟠 Mini-boss · 🟡 Silnejší nepriateľ) a skryté GM poznámky. Hráčom ostáva skryté.

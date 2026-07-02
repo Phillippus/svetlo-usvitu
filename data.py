@@ -6359,6 +6359,112 @@ EXTRA_DECISIONS_TALIANSKO = {
 }
 
 
+# ========== TÍMOVÉ SCÉNY (bossovia a mini-bossovia) ==========
+# Viac postáv spojí atribúty a hádže sa JEDNOU kockou proti veľmi vysokému DC.
+# DC = súčet (štartových) atribútov postáv + need. Mimo Talianska len malá družina;
+# v Taliansku (D21 mini, D22 boss) plný roster. contribs = [(postava, atribut), …].
+def _team(prompt, contribs, need, succ, near, fail):
+    return {"prompt": prompt, "contribs": contribs, "need": need,
+            "result_success": succ, "result_near": near, "result_fail": fail}
+
+
+TEAM_DECISIONS = {
+    # ── Kapitola II ──
+    "2026-07-14": [  # Hádanka runovej brány (mini)
+        _team("Tri runy brány treba naplniť NARAZ jedným spoločným sústredením. Družina spojí um.",
+              [("kuzelnik", "intelekt"), ("vedma", "mudrost"), ("elf", "intelekt")], 10,
+              "Tri mysle splynú do jednej — runy vzplanú súčasne a brána sa s dunením otvorí.",
+              "Runy takmer zladia, jedna zabliká — no brána povolí.",
+              "Sústredenie sa rozpadne a runy zhasnú — treba to skúsiť inak.")],
+    # ── Kapitola III (Taliansko — plný roster) ──
+    "2026-07-21": [  # Stráž ruín (mini) — 2 tímové scény
+        _team("Rúcajúci sa kamenný strážca padá — treba ho spoločne zadržať, kým prejdú najmladší.",
+              [("bojovnik", "sila"), ("obor", "sila"), ("velitel", "sila")], 11,
+              "Traja siláci zaprú plecia a kolos zadržia — všetci prejdú v bezpečí.",
+              "Strážca sa nakloní, no v poslednej chvíli ho udržia.",
+              "Váha je priveľká a strážca sa zrúti — družina musí uskočiť."),
+        _team("Runy strážcu treba rozlúštiť naraz — múdre hlavy oboch klanov spoja rozum.",
+              [("vedma", "intelekt"), ("kuzelnik", "intelekt"), ("liecitelka", "intelekt"), ("druid", "intelekt")], 11,
+              "Štyri mysle prečítajú runy súčasne — strážcovo srdce sa odhalí a stíchne.",
+              "Runy rozlúštia takmer celé, posledná im chvíľu odoláva.",
+              "Runy sú pridávne a spoločný výklad sa rozsype.")],
+    "2026-07-22": [  # Skazený tieň (BOSS) — 2 tímové scény (Taliansko téma)
+        _team("Tieň treba pribiť k zemi surovou silou — najsilnejší oboch klanov sa doň spoločne oprú.",
+              [("bojovnik", "sila"), ("obor", "sila"), ("nacelnik", "sila"), ("velitel", "sila")], 12,
+              "Štyri páry rúk pritlačia tieň k zemi — nemôže sa ani pohnúť, kým ho ostatní dobijú.",
+              "Tieň sa myká, no spoločná sila ho na kolenách udrží.",
+              "Tieň sa vzoprie a rozhodí ich — treba to skúsiť inak."),
+        _team("Tieň možno rozohnať len spojeným Svetlom — mágovia a liečitelia oboch rodov splynú v jedno.",
+              [("vedma", "magia"), ("kuzelnik", "magia"), ("liecitelka", "magia"), ("druid", "magia")], 12,
+              "Štyri prúdy svetla sa spoja do oslepivého lúča — tieň s revom mizne v jase.",
+              "Svetlo tieň takmer rozptýli, posledný cár sa ešte drží.",
+              "Prúdy sa rozladia a svetlo zhasne skôr, než tieň dostihne.")],
+    # ── Kapitola V ──
+    "2026-08-07": [  # Zrkadlový chrám (mini)
+        _team("Zrkadlá chrámu treba prehliadnuť naraz — čistá myseľ družiny sa spojí proti ilúzii.",
+              [("vedma", "mudrost"), ("kuzelnik", "intelekt"), ("elf", "mudrost")], 12,
+              "Spoločný pohľad prerazí všetky zrkadlá naraz — pravá cesta sa vynorí.",
+              "Väčšinu klamov prehliadnu, jeden ich ešte mätie.",
+              "Ilúzie sú prisilné a spoločné sústredenie sa tríešti.")],
+    "2026-08-09": [  # Pieskova búrka (mini)
+        _team("Pieskovou búrkou treba prejsť v pevnej reťazi — družina spojí výdrž a drží sa spolu.",
+              [("bojovnik", "vydrz"), ("elf", "obratnost"), ("kuzelnik", "magia")], 12,
+              "Reťaz tiel a mágie prejde búrkou bez straty — všetci na druhej strane.",
+              "Búrka reťaz napne, no vydrží.",
+              "Víchor reťaz roztrhne a rozhádže družinu.")],
+    "2026-08-11": [  # Súboj s pobočníkom (BOSS)
+        _team("Aškarovho pobočníka treba zasiahnuť spoločným úderom — sila, mágia a mrštnosť naraz.",
+              [("bojovnik", "sila"), ("kuzelnik", "magia"), ("elf", "obratnost")], 13,
+              "Meč, kúzlo a šíp dopadnú v jeden okamih — pobočník sa zlomí pod trojitým úderom.",
+              "Úder ho ťažko zraní, ešte sa drží na nohách.",
+              "Údery sa rozídu v čase a pobočník ich odrazí.")],
+    # ── Kapitola VI ──
+    "2026-08-17": [  # Prvý nápor tieňov (mini)
+        _team("Prvý nápor tieňov treba zadržať súvislou stenou — družina spojí silu a mágiu do bariéry.",
+              [("bojovnik", "sila"), ("kuzelnik", "magia"), ("vedma", "magia")], 13,
+              "Stena ocele a svetla nápor úplne zastaví — ani jeden tieň neprejde.",
+              "Bariéra sa prehne, no drží.",
+              "Nápor stenu pretlačí a tiene sa prelejú dnu.")],
+    "2026-08-19": [  # Spojenie úlomkov (mini)
+        _team("Úlomky Svetla treba spojiť naraz — družina vloží do nich spoločnú vôľu.",
+              [("vedma", "magia"), ("kuzelnik", "magia"), ("medvedik", "stastie")], 13,
+              "Úlomky do seba zapadnú a vzplanú — Svetlo Úsvitu je celé.",
+              "Úlomky sa spoja takmer celé, jeden ešte drží bokom.",
+              "Úlomky sa odpudia a vôľa sa rozsype.")],
+    "2026-08-22": [  # Skúška tieňových ilúzií (mini)
+        _team("Veľkú ilúziu treba prehliadnuť spoločne — družina spojí múdrosť a rozum.",
+              [("vedma", "mudrost"), ("kuzelnik", "intelekt"), ("elf", "mudrost")], 13,
+              "Spoločný pohľad ilúziu roztrhá — pravda leží odhalená.",
+              "Väčšinu ilúzie prehliadnu, kúsok ešte klame.",
+              "Ilúzia je utkaná pridôkladne a mysle sa v nej stratia.")],
+    "2026-08-25": [  # Pasce pevnosti (mini)
+        _team("Chodbu plnú pascí treba prejsť v dokonalej súhre — družina spojí mrštnosť a bystrosť.",
+              [("elf", "obratnost"), ("goblin", "obratnost"), ("bojovnik", "sila")], 13,
+              "Súhra tiel prejde pascami ako tanec — nič sa nespustí.",
+              "Jedna pasca cvakne, no nikoho vážne nezasiahne.",
+              "Súhra sa naruší a pasce sa spustia naraz.")],
+    "2026-08-26": [  # Pobočník brány (BOSS)
+        _team("Pobočníka brány treba zdolať spoločným náporom — sila, mágia a šípy naraz.",
+              [("bojovnik", "sila"), ("kuzelnik", "magia"), ("elf", "obratnost")], 14,
+              "Trojitý úder pobočníka zlomí — brána je voľná.",
+              "Úder ho ťažko zraní, ešte vzdoruje.",
+              "Údery sa rozídu a pobočník ich odrazí.")],
+    "2026-08-29": [  # Posledná bitka I (BOSS)
+        _team("Morgrathovu prvú vlnu treba zlomiť spoločnou silou Svetla — družina splynie v jedno.",
+              [("bojovnik", "sila"), ("vedma", "magia"), ("kuzelnik", "magia")], 14,
+              "Spojené Svetlo a oceľ vlnu rozmetajú — Morgrath po prvý raz ustúpi.",
+              "Vlnu takmer zlomia, posledný nápor ešte tlačí.",
+              "Vlna spojenie pretlačí a družina musí cúvnuť."),],
+    "2026-08-30": [  # Posledná bitka II — Morgrath finále (BOSS) — veľká tímová scéna
+        _team("Posledný úder do Morgratha musí zasadiť CELÁ družina naraz — každý dá do Svetla všetko.",
+              [("bojovnik", "sila"), ("vedma", "magia"), ("kuzelnik", "magia"),
+               ("elf", "obratnost"), ("goblin", "stastie"), ("medvedik", "stastie")], 15,
+              "Šesť sŕdc splynie do jediného Svetla Úsvitu — oslepivý úder rozotne Morgratha a tieň sa navždy rozplýva. Svetlo sa vrátilo do sveta.",
+              "Spojené Svetlo Morgratha zatlačí na samý okraj zániku — ešte jeden spoločný úder!",
+              "Načasovanie zlyhá a Svetlo sa rozptýli — družina sa musí zomknúť a skúsiť znova.")],
+}
+
+
 def build_decisions(ds, entry):
     """Jednotný zoznam rozhodnutí dňa.
 
@@ -6401,6 +6507,24 @@ def build_decisions(ds, entry):
             "option_d": _norm_option_d(d.get("option_d"), tier, [o["dc"] for o in opts_norm]),
         })
         xi += 1
+    # 🤝 tímové scény (len bossovia / mini-bossovia) — spojené atribúty, jedna kocka
+    ti = 1
+    for td in TEAM_DECISIONS.get(ds, []):
+        contribs = []
+        for c, a in td["contribs"]:
+            p = PARTY_ALL.get(c, {"meno": c, "icon": "❔"})
+            contribs.append({"postava_id": c, "atribut_key": a,
+                             "postava_nazov": p["meno"], "postava_ikona": p["icon"],
+                             "atr_start": stats_dict(c).get(a, 0)})
+        dc = sum(x["atr_start"] for x in contribs) + td["need"]
+        out.append({
+            "id": f"tim{ti}", "typ": "timova", "prompt": td["prompt"],
+            "contribs": contribs, "dc": dc,
+            "result_success": td["result_success"],
+            "result_near": td["result_near"],
+            "result_fail": td["result_fail"],
+        })
+        ti += 1
     # detské — posledné z rozhodnutí (pred predmetom a nákupom); DC sa NEzvyšuje (pre najmenších)
     out.append(detske_for_day(ds))
     # nájdené predmety -> predmetové rozhodnutia
