@@ -33,7 +33,11 @@ streamlit run app.py
 - **🛒 Trhy (10 typov):** Dedinský, Lesný druidov, Alchymistický, Klanový (Taliansko), Prístavný,
   Kováč, Tajomný obchodník, Putovná karavána, Hradný arzenál, Chrámový — nákup s platbou
   **osobné / klanové / kombinácia**.
-- **🎁 Predmet:** rozhodnutie „komu ho dáte" — pridelí sa do inventára vybranej postavy.
+- **🎁 Predmet:** rozhodnutie „komu ho dáte" — doplnky sa nasadia hneď, zbrane/zbroje idú do batohu.
+- **⚔️ Sloty výbavy:** hlavná ruka + druhá ruka (**max 2 zbrane**), **1 zbroj**, doplnky (opasky,
+  prstene, plášte…) **bez limitu**. Štartovacia výbava je nasadená a **ráta sa** do atribútov.
+  Zbroj/zbraň z batohu sa **nasadí (⚒)**, pri plnom slote sa vymení (nedá sa mať naraz štartová
+  zbroj aj Zbroj Prvého strážcu). Bojové bonusy zbraní platia len pri fyzických rozhodnutiach.
 - **⚙️ GM mód:** diskrétny prepínač úplne dole v sidebari. Zapne **GM kalendár** s farbami dní
   (🔴 Boss · 🟠 Mini-boss · 🟡 Silnejší nepriateľ) a skryté GM poznámky. Hráčom ostáva skryté.
 - **Míľniky:** Ťažší nepriateľ 1 · Mini-boss 2 · Hlavný boss 5 · Kapitola 3 — body sa rozdeľujú
