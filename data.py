@@ -5714,20 +5714,62 @@ def parse_mods(text):
     return mods
 
 
-# Jednorazové/spotrebné predmety s aktívnym efektom (tlačidlo „Použiť").
-# Kľúč = podreťazec názvu (malými písmenami). „typ": heal (+N životov),
-# heal_pct (+% max životov), hod_bonus_zajtra (+N ku všetkým hodom nasledujúci deň).
+# Jednorazové/spotrebné predmety s efektom. Kľúč = podreťazec názvu (malými písmenami).
+# Typy: heal (+N živ.), heal_pct (+% max živ.), hod_bonus_zajtra (+N k hodom zajtra),
+#       hod_bonus_dnes (+N k hodom dnes), regen_bonus (pasívne +N pri každom nocľahu).
+def _c(typ, hodnota, popis, pocet):
+    return {"pouzitie": {"typ": typ, "hodnota": hodnota, "popis": popis}, "pocet_pouziti": pocet}
+
+
 CONSUMABLE_EFFECTS = {
-    "medovník":         {"pouzitie": {"typ": "hod_bonus_zajtra", "hodnota": 1,
-                                       "popis": "+1 ku všetkým hodom zajtra"}, "pocet_pouziti": 1},
-    "zásoby jedla":     {"pouzitie": {"typ": "heal", "hodnota": 1,
-                                       "popis": "+1 život (jedlo počas oddychu)"}, "pocet_pouziti": 3},
-    "lektvar liečenia": {"pouzitie": {"typ": "heal_pct", "hodnota": 0.5,
-                                       "popis": "+50 % max životov"}, "pocet_pouziti": 1},
-    "liečivé byliny":   {"pouzitie": {"typ": "heal_pct", "hodnota": 0.2,
-                                       "popis": "+20 % max životov"}, "pocet_pouziti": 1},
-    "liečivý čaj":      {"pouzitie": {"typ": "heal_pct", "hodnota": 0.2,
-                                       "popis": "+20 % max životov"}, "pocet_pouziti": 1},
+    # — liečenie / oddych —
+    "medovník":         _c("hod_bonus_zajtra", 1, "+1 ku všetkým hodom zajtra", 1),
+    "zásoby jedla":     _c("heal", 1, "+1 život (jedlo počas oddychu)", 3),
+    "lektvar liečenia": _c("heal_pct", 0.5, "+50 % max životov", 1),
+    "liečivé byliny":   _c("heal_pct", 0.2, "+20 % max životov", 1),
+    "liečivý čaj":      _c("heal_pct", 0.2, "+20 % max životov", 1),
+    "sivomilova masť":  _c("heal", 2, "+2 životy (hojivá masť)", 2),
+    "chladivá masť":    _c("heal", 1, "+1 život, chladí popáleniny", 3),
+    "olej úsvitu":      _c("heal_pct", 0.3, "+30 % max životov", 1),
+    "lektvar neviditeľnosti": _c("hod_bonus_dnes", 3, "+3 k hodom dnes (nenápadnosť)", 1),
+    # — zásoby (pasívne +1 pri nocľahu) —
+    "hostinné zásoby":  _c("regen_bonus", 1, "+1 k regenerácii pri nocľahu", 3),
+    "korenené zásoby":  _c("regen_bonus", 1, "+1 k regenerácii pri nocľahu", 4),
+    "exotické sladkosti": _c("regen_bonus", 1, "+1 k regenerácii pri nocľahu", 2),
+    "púštnej vody":     _c("regen_bonus", 1, "+1 k regenerácii pri nocľahu", 2),
+    "mechy s vodou":    _c("regen_bonus", 1, "+1 k regenerácii pri nocľahu", 3),
+    "batoh na cestu":   _c("regen_bonus", 1, "+1 k regenerácii pri nocľahu", 3),
+    "plášť proti slnku": _c("regen_bonus", 1, "+1 k regenerácii (ochrana pred páľavou)", 3),
+    # — bojové / útočné spotrebné (+N k hodom dnes) —
+    "ohnivé šípy":      _c("hod_bonus_dnes", 2, "+2 k hodom dnes (ohnivé šípy)", 3),
+    "svätá voda":       _c("hod_bonus_dnes", 2, "+2 k hodom dnes proti tieňom", 3),
+    "výbušná fľaša":    _c("hod_bonus_dnes", 3, "+3 k hodu dnes (výbuch)", 1),
+    "vrhacie nože":     _c("hod_bonus_dnes", 1, "+1 k hodom dnes (vrhacie nože)", 5),
+    "pancierovými šípmi": _c("hod_bonus_dnes", 2, "+2 k hodom dnes (prieraznosť)", 3),
+    "uspávací prášok":  _c("hod_bonus_dnes", 2, "+2 k hodu dnes (uspatie)", 2),
+    "tieňový prach":    _c("hod_bonus_dnes", 2, "+2 k hodu dnes (tieňový úskok)", 2),
+    # — svetlo / prieskum —
+    "svetelný lampáš":  _c("hod_bonus_dnes", 1, "+1 k hodom dnes (lepší výhľad)", 3),
+    "svetluška":        _c("hod_bonus_dnes", 1, "+1 k hodom dnes (svetlo v tme)", 2),
+    # — šťastie / požehnanie —
+    "zvonček na šťastie": _c("hod_bonus_dnes", 1, "+1 k hodom dnes (šťastie)", 3),
+    "pútnické požehnanie": _c("hod_bonus_zajtra", 2, "+2 ku všetkým hodom zajtra", 1),
+    "modlitebná stuha": _c("hod_bonus_zajtra", 1, "+1 ku všetkým hodom zajtra", 2),
+    "cingľavý prívesok": _c("hod_bonus_dnes", 1, "+1 k hodom dnes (rozptýli zlo)", 2),
+    "spojenecká stužka": _c("hod_bonus_dnes", 1, "+1 k hodom dnes (podpora spojencov)", 3),
+    "iskra svetla nevinnosti": _c("hod_bonus_dnes", 2, "+2 k hodu dnes proti Morgrathovi", 1),
+    # — ochranné amulety (denný bonus) —
+    "amulet proti ilúziám": _c("hod_bonus_dnes", 2, "+2 k hodom dnes proti ilúziám", 2),
+    "ochranný kameň svetla": _c("hod_bonus_dnes", 2, "+2 k hodom dnes (ochrana svetlom)", 2),
+    "kamenný amulet strážcu": _c("hod_bonus_dnes", 1, "+1 k hodom dnes (ochrana)", 3),
+    "zrkadlový úlomok": _c("hod_bonus_dnes", 2, "+2 k hodom dnes proti ilúziám", 1),
+    "spojenecký prsteň": _c("hod_bonus_dnes", 1, "+1 k hodom dnes (podpora spojencov)", 2),
+    # — prieskum / veštba / velenie —
+    "veštecké kosti":   _c("hod_bonus_dnes", 2, "+2 k hodom dnes (náhľad do budúcnosti)", 1),
+    "veliteľský roh":   _c("hod_bonus_dnes", 1, "+1 k hodom dnes (privolá posilu)", 2),
+    "sokol-spoločník":  _c("hod_bonus_dnes", 1, "+1 k hodom dnes (prieskum z výšky)", 3),
+    "žiarivý kamienok": _c("hod_bonus_dnes", 1, "+1 k hodom dnes (svetlo z brány)", 2),
+    "žiarivý list":     _c("hod_bonus_dnes", 1, "+1 k hodom dnes (svetlo hája)", 2),
 }
 
 

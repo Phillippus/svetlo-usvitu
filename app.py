@@ -154,10 +154,10 @@ _ABILITY_USE_BUMP = {"temnozrak": 2, "zvieraci_prieskum": 1}
 
 SAVE_CORE = ["stats", "hp", "gold", "inventory", "milestone_points",
              "abilities", "active_effects", "temp_bonusy", "pending_ability"]
-PROGRESS_PREFIXES = ("res_", "res2_", "crit1_", "zloss_", "regen_done_", "predmet_done_",
-                     "nakup_done_", "levelup20_", "balloons_", "zlato_done_", "orb_used_",
-                     "stastna_kocka_", "dvojita_odmena_", "bojovnik_hranica_", "skip_",
-                     "skryta_den_")
+PROGRESS_PREFIXES = ("res_", "res2_", "crit1_", "zloss_", "regen_done_", "regen_zone_",
+                     "predmet_done_", "nakup_done_", "levelup20_", "balloons_", "zlato_done_",
+                     "orb_used_", "stastna_kocka_", "dvojita_odmena_", "bojovnik_hranica_",
+                     "skip_", "skryta_den_")
 
 
 def serialize_state():
@@ -1045,9 +1045,34 @@ def _regen_heal(cid, amt):
     return hp["current"] - before
 
 
+# Prostredie nocľahu — určuje, ktoré možnosti regenerácie sú logické.
+_HARSH_KW = ("púšť", "púšt", "piesk", "pevnos", "hrad", "aškar", "morgrath",
+             "tieňov", "sopk", "ľadov", "mráz", "žiariac", "spálen", "vyprahnut")
+ZONE_LABEL = {"dedina": "🏘️ Dedina / spoločnosť", "divocina": "🌲 Divočina",
+              "nehostinne": "🏜️ Nehostinné prostredie"}
+ZONE_HINT = {"dedina": "Ste medzi ľuďmi — krčma, lekár, tábor v dedine.",
+             "divocina": "Táborenie v prírode — les alebo provizórny nocľah.",
+             "nehostinne": "Žiadna dedina nablízku — len provizórny prístrešok, či holá zem."}
+
+
+def regen_zone(ds, entry):
+    """Prostredie nocľahu: 'dedina' (trh/Taliansko), 'nehostinne' (púšť/pevnosť/tieň),
+    inak 'divocina'. GM to môže prepísať cez ss['regen_zone_{ds}']."""
+    ss = st.session_state
+    override = ss.get(f"regen_zone_{ds}")
+    if override in ZONE_LABEL:
+        return override
+    if (ds in MARKET_DAYS) or entry.get("group") == "velka":
+        return "dedina"
+    blob = (entry.get("title", "") + " " + entry.get("intro", "")).lower()
+    if any(k in blob for k in _HARSH_KW):
+        return "nehostinne"
+    return "divocina"
+
+
 def render_regen_decision(ds, entry):
-    """Koniec dňa: kde družina strávi noc → regenerácia životov.
-    V spoločnosti (deň s trhom / Taliansko) pribudnú krčma a lekár.
+    """Koniec dňa: kde družina strávi noc → regenerácia životov. Možnosti závisia od
+    prostredia (dedina/divočina/nehostinné). Pasívne 'zásoby' pridajú +N navyše.
     Eliminovaní sa neregenerujú (najprv GM oživenie)."""
     ss = st.session_state
     donekey = f"regen_done_{ds}"
@@ -1065,28 +1090,44 @@ def render_regen_decision(ds, entry):
         st.info("Nikto zo živých — regenerácia sa preskočí.")
         return
 
-    spolocnost = (ds in MARKET_DAYS) or (entry["group"] == "velka")
-    st.caption("Vyberte, kde družina prenocuje. Eliminovaní sa neregenerujú — najprv ich musí GM oživiť.")
+    zone = regen_zone(ds, entry)
+    st.caption(f"Miesto: **{ZONE_LABEL[zone]}**. {ZONE_HINT[zone]} "
+               "Eliminovaní sa neregenerujú (najprv GM oživenie).")
+    # GM smie prostredie prepísať (ak inferencia sedí zle)
+    if ss.get("gm_mode"):
+        zopts = list(ZONE_LABEL.keys())
+        gz = st.selectbox("🔒 Prostredie (GM prepis)", zopts, index=zopts.index(zone),
+                          format_func=lambda z: ZONE_LABEL[z], key=f"regen_zonesel_{ds}")
+        if gz != zone:
+            ss[f"regen_zone_{ds}"] = gz
+            st.rerun()
 
-    if spolocnost:
+    def _apply(base_map, label, cost=0):
+        lines = []
+        for c in zivi:
+            _regen_heal(c, base_map.get(c, 0))
+            b = apply_regen_bonuses(c)          # pasívne zásoby jedla atď.
+            if b:
+                lines.append(f"{PARTY_ALL[c]['icon']}+{b}")
+        if cost:
+            ss["gold"]["klan"] = max(0, ss["gold"]["klan"] - cost)
+        if lines:
+            label += "  ·  🍖 zásoby: " + ", ".join(lines)
+        ss[donekey] = label
+        st.rerun()
+
+    if zone == "dedina":
         klan = ss["gold"]["klan"]
         cena_krcma = 10 * len(zivi)
         dost_krcma = klan >= cena_krcma
         if st.button(f"🏘️ Krčma / hostinec — {cena_krcma} zl z klanu (10/os.) → **+4** každému",
                      key=f"regen_krcma_{ds}", disabled=not dost_krcma):
-            for c in zivi:
-                _regen_heal(c, 4)
-            ss["gold"]["klan"] = klan - cena_krcma
-            ss[donekey] = f"Krčma (+4 každému, −{cena_krcma} zl z klanu)"
-            st.rerun()
+            _apply({c: 4 for c in zivi}, f"Krčma (+4 každému, −{cena_krcma} zl z klanu)", cena_krcma)
         if not dost_krcma:
             st.caption(f"⚠️ V klanovej pokladnici je len {klan} zl (treba {cena_krcma}).")
         if st.button("🏕️ Tábor medzi ľuďmi (dedina) — zdarma → **+3** každému",
                      key=f"regen_tabor_ludia_{ds}"):
-            for c in zivi:
-                _regen_heal(c, 3)
-            ss[donekey] = "Tábor medzi ľuďmi (+3 každému)"
-            st.rerun()
+            _apply({c: 3 for c in zivi}, "Tábor medzi ľuďmi (+3 každému)")
         st.markdown("**⚕️ Lekár** — 15 zl za jednu postavu (**+5**), ostatní idú do tábora (**+3**):")
         lc = st.selectbox("Koho k lekárovi", zivi,
                           format_func=lambda c: f"{PARTY_ALL[c]['icon']} {short_name(c)}",
@@ -1094,32 +1135,25 @@ def render_regen_decision(ds, entry):
         dost_lekar = klan >= 15
         if st.button(f"⚕️ K lekárovi: {short_name(lc)} (+5, −15 zl), ostatní tábor (+3)",
                      key=f"regen_lekar_{ds}", disabled=not dost_lekar):
-            _regen_heal(lc, 5)
-            for c in zivi:
-                if c != lc:
-                    _regen_heal(c, 3)
-            ss["gold"]["klan"] = klan - 15
-            ss[donekey] = f"Lekár: {short_name(lc)} +5, ostatní +3 (−15 zl z klanu)"
-            st.rerun()
+            _apply({c: (5 if c == lc else 3) for c in zivi},
+                   f"Lekár: {short_name(lc)} +5, ostatní +3 (−15 zl z klanu)", 15)
         if not dost_lekar:
             st.caption(f"⚠️ Na lekára treba 15 zl (v klane je {klan}).")
-        st.caption("— alebo mimo spoločnosti (ak družina radšej táborí):")
 
-    if st.button("🌲 Tábor v divočine / lese — zdarma → **+2** každému", key=f"regen_les_{ds}"):
-        for c in zivi:
-            _regen_heal(c, 2)
-        ss[donekey] = "Divočina / les (+2 každému)"
-        st.rerun()
-    if st.button("⛺ Provizórny nocľah (dážď, hliadky, nepohodlie) — zdarma → **+1** každému",
-                 key=f"regen_provizorny_{ds}"):
-        for c in zivi:
-            _regen_heal(c, 1)
-        ss[donekey] = "Provizórny nocľah (+1 každému)"
-        st.rerun()
-    if st.button("🏜️ Nehostinné prostredie (púšť, pevnosť, tieň) — bez oddychu (**+0**)",
-                 key=f"regen_nehostinne_{ds}"):
-        ss[donekey] = "Nehostinné prostredie (+0)"
-        st.rerun()
+    elif zone == "divocina":
+        if st.button("🌲 Tábor v divočine / lese — zdarma → **+2** každému", key=f"regen_les_{ds}"):
+            _apply({c: 2 for c in zivi}, "Divočina / les (+2 každému)")
+        if st.button("⛺ Provizórny nocľah (dážď, hliadky) — zdarma → **+1** každému",
+                     key=f"regen_provizorny_{ds}"):
+            _apply({c: 1 for c in zivi}, "Provizórny nocľah (+1 každému)")
+
+    else:  # nehostinne
+        if st.button("⛺ Provizórny prístrešok (skala, ruina) — zdarma → **+1** každému",
+                     key=f"regen_provizorny_{ds}"):
+            _apply({c: 1 for c in zivi}, "Provizórny prístrešok (+1 každému)")
+        if st.button("🏜️ Holá nehostinná zem (púšť, pevnosť, tieň) — bez oddychu (**+0**)",
+                     key=f"regen_nehostinne_{ds}"):
+            _apply({c: 0 for c in zivi}, "Nehostinné prostredie (+0)")
 
 
 def use_consumable(cid, item):
@@ -1145,11 +1179,40 @@ def use_consumable(cid, item):
         ss["temp_bonusy"].setdefault(tom, []).append(
             {"postava": cid, "atribut": "all", "hodnota": val, "zdroj": item["nazov"]})
         msg = f"🍪 {short_name(cid)}: +{val} ku všetkým hodom zajtra."
+    elif typ == "hod_bonus_dnes":
+        sel = ss.get("sel_date")
+        dnes = sel.isoformat() if hasattr(sel, "isoformat") else datetime.date.today().isoformat()
+        ss["temp_bonusy"].setdefault(dnes, []).append(
+            {"postava": cid, "atribut": "all", "hodnota": val, "zdroj": item["nazov"]})
+        msg = f"✨ {short_name(cid)}: +{val} ku všetkým hodom dnes."
     else:
         msg = "Predmet použitý."
     left = (item.get("pocet_pouziti") or 1) - 1
     item["pocet_pouziti"] = left
     return msg, left <= 0
+
+
+def apply_regen_bonuses(cid):
+    """Pasívne predmety s efektom 'regen_bonus' pridajú životy pri nocľahu a minú použitie.
+    Vráti počet životov navyše z týchto predmetov."""
+    ss = st.session_state
+    hp = ss["hp"][cid]
+    extra = 0
+    for it in list(ss["inventory"].get(cid, [])):
+        if not isinstance(it, dict):
+            continue
+        p = it.get("pouzitie") or {}
+        if p.get("typ") != "regen_bonus" or (it.get("pocet_pouziti") or 0) <= 0:
+            continue
+        got = min(hp["max"], hp["current"] + p.get("hodnota", 1)) - hp["current"]
+        hp["current"] += got
+        extra += got
+        it["pocet_pouziti"] = (it.get("pocet_pouziti") or 1) - 1
+    # minuté predmety odstráň
+    ss["inventory"][cid] = [it for it in ss["inventory"].get(cid, [])
+                            if not (isinstance(it, dict) and (it.get("pouzitie") or {}).get("typ") == "regen_bonus"
+                                    and (it.get("pocet_pouziti") or 0) <= 0)]
+    return extra
 
 
 def render_char_card(cid, entry, accent):
@@ -1240,14 +1303,17 @@ def render_char_card(cid, entry, accent):
             pouzitie = item.get("pouzitie") if isinstance(item, dict) else None
             pocet = item.get("pocet_pouziti") if isinstance(item, dict) else None
             ic = st.columns([5, 1])
+            pasivny = bool(pouzitie) and pouzitie.get("typ") == "regen_bonus"
             eff = f"  \n<span style='font-size:0.74rem;color:#9aa'>{ms}</span>" if ms else ""
             if pouzitie:
-                eff += (f"  \n<span style='font-size:0.74rem;color:#7fb069'>✨ {pouzitie.get('popis','')}"
+                znak = "🍖 pasívne (pri nocľahu)" if pasivny else "✨"
+                eff += (f"  \n<span style='font-size:0.74rem;color:#7fb069'>{znak} {pouzitie.get('popis','')}"
                         f" · použití: {pocet}</span>")
             ic[0].markdown(f"- {name}{eff}", unsafe_allow_html=True)
             if ic[1].button("✖", key=f"rm_{cid}_{i}", help="Vyhodiť predmet"):
                 inv.pop(i); st.rerun()
-            if pouzitie and (pocet or 0) > 0:
+            # aktívne spotrebné majú tlačidlo Použiť; pasívne (regen_bonus) sa aplikujú pri nocľahu
+            if pouzitie and not pasivny and (pocet or 0) > 0:
                 if st.button(f"✅ Použiť — {pouzitie.get('popis','')}", key=f"use_{cid}_{i}"):
                     msg, minulo = use_consumable(cid, item)
                     if minulo:
