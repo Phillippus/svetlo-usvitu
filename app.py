@@ -1299,6 +1299,19 @@ def render_char_card(cid, entry, accent):
 # =========================================================================
 #  SIDEBAR — KLAN, MÍĽNIKY, NOVÁ NOC, GM
 # =========================================================================
+@st.cache_data(show_spinner=False)
+def _build_id():
+    """Krátky git commit hash aktuálneho nasadenia (na rozlíšenie deploy vs. cache)."""
+    import subprocess
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            stderr=subprocess.DEVNULL, timeout=3).decode().strip() or "local"
+    except Exception:
+        return "local"
+
+
 def render_sidebar(entry, accent):
     ss = st.session_state
     is_velka = entry["group"] == "velka"
@@ -1392,6 +1405,11 @@ def render_sidebar(entry, accent):
         st.markdown("<div style='height:1.5em'></div>", unsafe_allow_html=True)
         st.toggle("⚙️", value=ss.get("gm_mode", False), key="gm_mode",
                   help="GM režim (farby dní, skryté poznámky)")
+
+        # build štítok — mení sa pri každom nasadení (deploy vs. cache)
+        st.markdown(
+            f"<div style='text-align:center;color:#667;font-size:0.68rem;margin-top:0.6em'>"
+            f"build {_build_id()}</div>", unsafe_allow_html=True)
 
 
 # =========================================================================
