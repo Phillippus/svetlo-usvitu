@@ -313,7 +313,9 @@ def evaluate(opt, roll, cid, is_combat=False, ds=None):
     total = roll_eff + atr + bonus + item_b + spec_b
     dc = opt["dc"]
     diff = total - dc
-    if total >= dc:
+    if roll == 20:                 # prirodzená 20 = okamžitý úspech (bez ohľadu na DC)
+        outcome = "success"
+    elif total >= dc:
         outcome = "success"
     elif diff >= -3:
         outcome = "near"
@@ -720,7 +722,9 @@ def render_spoj_decision(n, ds, dec, accent, entry, pend):
             hv, hk = highest_attr(c)
             rolls.append((c, roll, hv, hk))
             total += roll + hv
-        outcome = "success" if total >= dc else ("near" if total >= dc - 3 else "fail")
+        krit20 = any(r == 20 for _, r, _, _ in rolls)     # ktorákoľvek 20 = úspech
+        outcome = ("success" if (krit20 or total >= dc)
+                   else ("near" if total >= dc - 3 else "fail"))
         ss[reskey] = {"idx": 0, "spoj": True, "spoj_rolls": rolls, "total": total, "dc": dc,
                       "diff": total - dc, "outcome": outcome, "postava": team[0],
                       "atribut": opt["atribut_key"], "roll": 0, "roll_eff": 0}

@@ -27,7 +27,8 @@ streamlit run app.py
   strata) · **4–8** −1 · **9–12** −2 · **13–16** −3 · **17–20** −5 · **21+** smrť (eliminácia).
 - **Druhá šanca** (tá istá postava, max 1 pokus): tesný neúspech s **rovnakým DC**, neúspech 4+ s
   **DC +2** (a stráca životy). Družina pokračuje pri úspechu alebo po dvoch neúspechoch.
-- **Hod 20:** ponúkne `+1` k danému atribútu (max 1× za deň na postavu). **Hod 1:** −1 život navyše.
+- **Hod 20 = okamžitý úspech** (bez ohľadu na DC) + ponúkne `+1` k danému atribútu (max 1× za deň
+  na postavu). **Hod 1:** −1 život navyše.
 - **Variabilný počet rozhodnutí:** bežné (decision1/2/3) + 🎁 nájdený predmet + 🛒 nákup (ak je trh)
   + 👶 detské rozhodnutie (vždy posledné, nízke DC, vždy aspoň čiastočne pozitívne).
 - **🛒 Trhy (10 typov):** Dedinský, Lesný druidov, Alchymistický, Klanový (Taliansko), Prístavný,
