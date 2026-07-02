@@ -23,8 +23,11 @@ streamlit run app.py
 
 - **d20 skill check:** `hod_d20 + aktuálny_atribút + bonus ≥ DC → úspech`. Animovaný hod
   (trase → spomalenie → finále). Pri každej možnosti je **rozpis bonusov** a *„potrebuješ hodiť X+"*.
-  Rozlíšenie Úspech / Tesný neúspech (−1 až −3, `result_near`) / Neúspech (−4+, druhá šanca DC +5).
-- **Hod 20:** ponúkne `+1` k danému atribútu (max 1× za deň na postavu). **Hod 1:** −10 % Výdrže navyše.
+- **Neúspech = strata Životov** podľa toho, o koľko chýbalo k DC: **1–3** tesný neúspech (žiadna
+  strata) · **4–8** −1 · **9–12** −2 · **13–16** −3 · **17–20** −5 · **21+** smrť (eliminácia).
+- **Druhá šanca** (tá istá postava, max 1 pokus): tesný neúspech s **rovnakým DC**, neúspech 4+ s
+  **DC +2** (a stráca životy). Družina pokračuje pri úspechu alebo po dvoch neúspechoch.
+- **Hod 20:** ponúkne `+1` k danému atribútu (max 1× za deň na postavu). **Hod 1:** −1 život navyše.
 - **Variabilný počet rozhodnutí:** bežné (decision1/2/3) + 🎁 nájdený predmet + 🛒 nákup (ak je trh)
   + 👶 detské rozhodnutie (vždy posledné, nízke DC, vždy aspoň čiastočne pozitívne).
 - **🛒 Trhy (10 typov):** Dedinský, Lesný druidov, Alchymistický, Klanový (Taliansko), Prístavný,
@@ -35,10 +38,11 @@ streamlit run app.py
   (🔴 Boss · 🟠 Mini-boss · 🟡 Silnejší nepriateľ) a skryté GM poznámky. Hráčom ostáva skryté.
 - **Míľniky:** Ťažší nepriateľ 1 · Mini-boss 2 · Hlavný boss 5 · Kapitola 3 — body sa rozdeľujú
   v kartách postáv (bez stropu).
-- **Výdrž = životy:** štart = atribút Výdrž; farebný progress bar (zelená/oranžová/červená).
-  Vedma: veštecká guľa = −20 % max Výdrže.
-- **Nová noc:** automatická regenerácia podľa prostredia (bezpečný +20 %, nebezpečný +10 %,
-  bez jedla +0 %, krčma +30 % a −10 zl z klanu).
+- **Výdrž je atribút; Životy sú samostatné:** počet Životov = hodnota atribútu Výdrž. Farebný
+  progress bar. **0 Životov = eliminácia** (v GM móde tlačidlo **Oživiť**). Vedma: veštecká guľa
+  = −20 % max Životov.
+- **Nová noc (každý deň):** regenerácia Životov v pevných číslach podľa prostredia (bezpečný +3,
+  nebezpečný +1, bez jedla 0, krčma +4 a −10 zl z klanu). Eliminovaní sa neregenerujú.
 - **Zlato:** osobné + klanová pokladnica (Železný Dub vždy, Zlaté Slnko počas Talianska).
 - **Inventár:** štartovacia výbava (pevná) + max 5 predmetov.
 
