@@ -4115,8 +4115,12 @@ TARGET_OVERRIDE = {1: 5, 10: 5, 13: 5, 15: 5, 37: 5, 54: 5, 58: 5}
 
 
 def target_bezne(entry):
-    """Cieľový počet bežných rozhodnutí pre deň (rešpektuje override)."""
-    return TARGET_OVERRIDE.get(entry["day"], TARGET_BEZNE[day_tier(entry)])
+    """Cieľový počet bežných rozhodnutí pre deň (rešpektuje override).
+    Talianske dni (group velka) majú EXKLUZÍVNE 2× cieľ (dvojnásobná družina)."""
+    base = TARGET_OVERRIDE.get(entry["day"], TARGET_BEZNE[day_tier(entry)])
+    if entry.get("group") == "velka":
+        return base * 2
+    return base
 
 # Štítky typov dní pre badge / GM kalendár
 KIND_LABEL = {
@@ -5794,12 +5798,63 @@ def item_allowed_for(item, cid):
     return cid in pk
 
 
+# ========== TALIANSKO (kap. III, group velka) — EXKLUZÍVNE zdvojnásobenie ==========
+# Extra rozhodnutia navyše LEN pre talianske dni (18.–25.7.), aby sa pri dvojnásobnej
+# družine (oba klany, 14+ postáv) každý poriadne zahral. Vystupujú aj postavy Klanu
+# Zlatého Slnka (náčelník, veliteľ, obor, druid, liečiteľka, bylinkárka, alchymista, posol).
+EXTRA_DECISIONS_TALIANSKO = {
+    "2026-07-18": [  # Hostina Klanu Zlatého slnka — Taliansko ×2
+        _xd("Klan Zlatého Slnka vyzve hostí na tradičnú skúšku sily pri hostine. Kto ich zastúpi?", "fyzicke",
+            _xo("A) Obor zdvihne celý dubový sud s medovinou nad hlavu", "obor", "sila", 14,
+                "Obor zdvihne sud jednou rukou — sieň vybuchne jasotom.", "Sud sa zakolíše, no Obor ho udrží.", "Sud je primokrý a vyšmykne sa mu."),
+            _xo("B) Bojovník zápasí s klanovým silákom v priateľskom súboji", "bojovnik", "sila", 14,
+                "Vyrovnaný súboj skončí remízou a vzájomným rešpektom.", "Prehrá o vlások, no so cťou.", "Rýchlo podľahne a rody sa uškŕňajú."),
+            _xo("C) Náčelník premení skúšku na spoločnú súťaž oboch rodov", "nacelnik", "charizma", 13,
+                "Zo súťaže sa stane bratská zábava — rody sa zbližujú.", "Súťaž pobaví, no víťaz sa škriepi.", "Súťaživosť prerastie do napätia.")),
+        _xd("Druid Klanu ukáže hosťom svoje spriaznené zvieratá. Ako sa družina zapojí?", "tajomne",
+            _xo("A) Druid privolá kŕdeľ svetlušiek nad hostinu", "druid", "mudrost", 14,
+                "Nad sieňou zažiari živý baldachýn svetla — hostia stíchnu úžasom.", "Svetlušky priletia, no rozpŕchnu sa priskoro.", "Zvieratá sa plaché nezhromaždia."),
+            _xo("B) Najmladší si podá ruku s druidovým vlkom", "medvedik", "charizma", 12,
+                "Vlk mu jemne oňuchá dlaň — priateľstvo rodov je spečatené.", "Vlk zaváha, no nechá sa pohladiť.", "Vlk sa stiahne a dieťa sa zľakne.", 2),
+            _xo("C) Bylinkárka ponúkne zvieratám bylinky na dôveru", "bylinkarka", "mudrost", 13,
+                "Zvieratá jej zobú z ruky — klan žasne nad jej darom.", "Prijmú bylinky opatrne.", "Zvieratá bylinky odmietnu.")),
+        _xd("Alchymista Zlatého Slnka pripravuje slávnostný ohňostroj. Kto pomôže, aby vyšiel?", "takticke",
+            _xo("A) Alchymista vyladí zmes na dúhové svetlá", "alchymista", "intelekt", 14,
+                "Obloha nad Talianskom vzplanie dúhou — hostina vrcholí.", "Farby sú bledšie, no efekt poteší.", "Zmes zadymí sieň namiesto oblohy."),
+            _xo("B) Kúzelník posilní ohňostroj svetelnou mágiou", "kuzelnik", "magia", 13,
+                "Mágia znásobí iskry do hviezdneho víru.", "Efekt zosilnie len sčasti.", "Kúzlo a zmes si odporujú a syčia."),
+            _xo("C) Veliteľ rozostaví ľudí, aby bol ohňostroj bezpečný", "velitel", "intelekt", 13,
+                "Presné rozostavenie — nikto nepríde k úrazu a všetci vidia.", "Pár hostí stojí zle, no nič sa nestane.", "Zmätok pri odpaľovaní hostí vyplaší.")),
+        _xd("Bylinkárka a Liečiteľka spoja recepty na slávnostný nápoj rodov. Ako dopadne?", "sociale",
+            _xo("A) Bylinkárka pridá vzácne horské byliny", "bylinkarka", "mudrost", 13,
+                "Nápoj rozvonia sieň — rody si štrngnú na bratstvo.", "Chuť je nezvyčajná, no prijmú ju.", "Byliny nápoj zhorknú."),
+            _xo("B) Liečiteľka doladí nápoj na posilnenie pred cestou", "liecitelka", "mudrost", 13,
+                "Každý dúšok dodá silu — družina je pripravená na ruiny.", "Nápoj posilní len časť družiny.", "Zmes je pririedka a účinok slabý."),
+            _xo("C) Goblin tajne prihodí do kotla 'šťastnú' prísadu", "goblin", "stastie", 12,
+                "Náhoda vylepší chuť na nezabudnuteľnú — všetci chvália.", "Prísada chuť zmení, no zaujme.", "Kotol prekypí a nápoj sa rozleje.")),
+        _xd("Náčelníci oboch klanov chcú spísať spoločnú stratégiu proti Tieňu. Kto ju navrhne?", "takticke",
+            _xo("A) Veliteľ rozkreslí plán obrany pohraničia", "velitel", "intelekt", 14,
+                "Jasný plán presvedčí oboch náčelníkov — spojenectvo má smer.", "Plán je dobrý, no jeden bod treba doladiť.", "Plán je príliš zložitý a rody sa v ňom stratia."),
+            _xo("B) Náčelník Železného Dubu pridá skúsenosť z bojov s tieňom", "nacelnik", "intelekt", 13,
+                "Jeho rady plán spevnia — Zlaté Slnko prikyvuje.", "Rady pomôžu, no niektoré sú zastarané.", "Rozpor v taktike vyvolá spor."),
+            _xo("C) Vedma doplní stratégiu o poznatky z veštby", "vedma", "mudrost", 13,
+                "Veštba odhalí slabinu Tieňa — plán dostáva prevahu.", "Veštba je hmlistá, no užitočná.", "Temná predpoveď plán spochybní.")),
+        _xd("Posol Zlatého Slnka a malý Posol si majú vymeniť tajné signály medzi klanmi. Ako?", "prieskumne",
+            _xo("A) Malý posol vymyslí rýchly posunkový jazyk", "posol", "intelekt", 13,
+                "Za večer zvládnu tajnú reč rúk — klany budú v spojení.", "Signály fungujú, občas si nerozumejú.", "Posunky sa im pletú a zmätú."),
+            _xo("B) Elf naučí oboch čítať stopy a znamenia v teréne", "elf", "obratnost", 13,
+                "Obaja sa naučia čítať les — nič im neujde.", "Naučia sa základy.", "Stopy sú preťažké a rýchlo sa vzdajú."),
+            _xo("C) Náčelník určí sústavu ohňových signálov na vežiach", "nacelnik", "intelekt", 13,
+                "Reťaz signálnych ohňov prepojí oba klany.", "Systém funguje, no pomaly.", "Signály si klany zle vyložia."))],
+}
+
+
 def build_decisions(ds, entry):
     """Jednotný zoznam rozhodnutí dňa.
 
-    Poradie: bežné (decision1/2/3) → extra (boss/mini-boss/ťažší) → detské
+    Poradie: bežné (decision1/2/3) → extra (boss/mini-boss/ťažší + Taliansko) → detské
     → 🎁 predmet → 🛒 nákup. Každý deň má min. 4 rozhodnutia (3 bežné + detské),
-    ťažšie dni viac (ťažší +1, mini-boss +2, boss +3).
+    ťažšie dni viac; talianske dni (velka) majú EXKLUZÍVNE 2× (viac hráčov).
     """
     out = []
     tier = day_tier(entry)
@@ -5818,7 +5873,7 @@ def build_decisions(ds, entry):
     # extra rozhodnutia pre ťažšie dni (DC odvodené od atribútu postavy podľa tieru)
     xi = 4
     for d in (EXTRA_DECISIONS.get(ds, []) + EXTRA_DECISIONS_VI.get(ds, [])
-              + EXTRA_DECISIONS_5.get(ds, [])):
+              + EXTRA_DECISIONS_5.get(ds, []) + EXTRA_DECISIONS_TALIANSKO.get(ds, [])):
         opts_norm = [_norm_option(o, tier, rebase=True) for o in d["options"]]
         out.append({
             "id": f"d{xi}",
