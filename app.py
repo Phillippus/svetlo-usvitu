@@ -154,7 +154,7 @@ _ABILITY_USE_BUMP = {"temnozrak": 2, "zvieraci_prieskum": 1}
 
 SAVE_CORE = ["stats", "hp", "gold", "inventory", "milestone_points",
              "abilities", "active_effects", "temp_bonusy", "pending_ability"]
-PROGRESS_PREFIXES = ("res_", "res2_", "crit1_", "predmet_done_", "nakup_done_",
+PROGRESS_PREFIXES = ("res_", "res2_", "crit1_", "zloss_", "predmet_done_", "nakup_done_",
                      "levelup20_", "balloons_", "zlato_done_",
                      "stastna_kocka_", "dvojita_odmena_", "bojovnik_hranica_", "skip_",
                      "skryta_den_")
@@ -338,6 +338,51 @@ def outcome_label(res):
         "near": f"🟠 Tesný neúspech (chýbalo {abs(res['diff'])})",
         "fail": f"❌ Neúspech (chýbalo {abs(res['diff'])})",
     }[res["outcome"]]
+
+
+def zivoty_za_rozdiel(margin):
+    """Koľko životov postava stratí podľa veľkosti neúspechu (margin = DC − celkový hod).
+    1–3 tesný neúspech (0, len druhá šanca) · 4–8 →1 · 9–12 →2 · 13–16 →3 · 17–20 →5 · 21+ → smrť."""
+    if margin >= 21:
+        return "smrt"
+    if margin >= 17:
+        return 5
+    if margin >= 13:
+        return 3
+    if margin >= 9:
+        return 2
+    if margin >= 4:
+        return 1
+    return 0
+
+
+def zivoty_slovo(n):
+    """Slovenské skloňovanie: 1 život, 2–4 životy, inak životov."""
+    return "život" if n == 1 else ("životy" if 2 <= n <= 4 else "životov")
+
+
+def apply_life_loss(ds, dec, opt, res, attempt):
+    """Aplikuje stratu životov za JEDEN neúspešný hod (raz na daný pokus).
+    Vráti (strata, eliminovaný_bool). strata je 0 / int / 'smrt'."""
+    ss = st.session_state
+    strata = zivoty_za_rozdiel(-res["diff"])
+    hp = ss["hp"][opt["postava_id"]]
+    if strata == 0:
+        return 0, hp["current"] <= 0
+    lkey = f"zloss_{ds}_{dec['id']}_{attempt}"
+    if not ss.get(lkey):
+        hp["current"] = 0 if strata == "smrt" else max(0, hp["current"] - strata)
+        ss[lkey] = True
+    return strata, hp["current"] <= 0
+
+
+def render_life_loss(strata, opt, eliminated):
+    """Zobrazí hlášku o strate životov / eliminácii."""
+    if strata == "smrt":
+        st.error(f"💀 Smrteľný neúspech — {opt['postava_nazov']} je **ELIMINOVANÝ/Á**!")
+    elif strata:
+        chvost = " — a tým **ELIMINOVANÝ/Á** ☠️" if eliminated else ""
+        st.markdown(f"💔 **{opt['postava_nazov']} stráca {strata} {zivoty_slovo(strata)}**{chvost}.")
 
 
 def atr_name(akey):
@@ -584,15 +629,15 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
 
     real = not (res.get("auto") or res.get("skipped") or res.get("spoj"))
 
-    # Hod 1 — kritický neúspech: −10 % Výdrže navyše (raz). Šťastná kocka / Prorocká vízia to rušia.
+    # Hod 1 — kritický neúspech: −1 život navyše (raz). Šťastná kocka / Prorocká vízia to rušia.
     if real and res["roll"] == 1 and res.get("roll_eff", 1) == 1 and not positive:
         critkey = f"crit1_{ds}_{dec['id']}"
+        hp = ss["hp"][opt["postava_id"]]
         if not ss.get(critkey):
-            hp = ss["hp"][opt["postava_id"]]
-            strata = max(1, math.ceil(hp["max"] * 0.10))
-            hp["current"] = max(0, hp["current"] - strata)
+            hp["current"] = max(0, hp["current"] - 1)
             ss[critkey] = True
-            st.caption(f"💀 Kritický neúspech: {opt['postava_nazov']} −{strata} Výdrže.")
+        chvost = " — **ELIMINOVANÝ/Á** ☠️" if hp["current"] <= 0 else ""
+        st.caption(f"💀 Kritický neúspech (hod 1): {opt['postava_nazov']} −1 život navyše{chvost}.")
 
     # Levelup pri hode 20 (max 1× za deň na postavu)
     if real and res["roll"] == 20:
@@ -624,12 +669,23 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
             ss.pop("pending_ability", None)
             st.rerun()
 
-    # Veľký neúspech → druhá šanca (nie pri detskom / auto)
+    # Strata životov za prvý hod (len neúspech 4+; tesný neúspech 1–3 nič nestráca)
     if real and res["outcome"] == "fail" and not positive:
-        render_second_chance(n, ds, dec, accent, entry)
+        strata, elim = apply_life_loss(ds, dec, opt, res, attempt=1)
+        render_life_loss(strata, opt, elim)
+
+    # Druhá šanca — každý neúspech (tesný aj veľký) dostane 1 pokus tou istou postavou.
+    # Tesný neúspech (1–3): rovnaké DC. Neúspech 4+: DC +2. Smrť (21+) druhú šancu nedá.
+    if real and res["outcome"] in ("near", "fail") and not positive and not res.get("is_second"):
+        smrtelny = res["outcome"] == "fail" and zivoty_za_rozdiel(-res["diff"]) == "smrt"
+        if smrtelny or ss["hp"][opt["postava_id"]]["current"] <= 0:
+            st.info("☠️ Postava je eliminovaná — družina pokračuje ďalej.")
+        else:
+            render_second_chance(n, ds, dec, accent, entry, opt, res)
 
     if st.button(f"↩️ Znova rozhodnutie {n}", key=f"reset_{ds}_{dec['id']}"):
-        for k in (reskey, f"res2_{ds}_{dec['id']}", f"crit1_{ds}_{dec['id']}"):
+        for k in (reskey, f"res2_{ds}_{dec['id']}", f"crit1_{ds}_{dec['id']}",
+                  f"zloss_{ds}_{dec['id']}_1", f"zloss_{ds}_{dec['id']}_2"):
             ss.pop(k, None)
         st.rerun()
     return True
@@ -671,42 +727,48 @@ def render_spoj_decision(n, ds, dec, accent, entry, pend):
     return False
 
 
-def render_second_chance(n, ds, dec, accent, entry):
+def render_second_chance(n, ds, dec, accent, entry, opt, first_res):
+    """Druhá šanca tou istou postavou. Tesný neúspech (1–3) → rovnaké DC;
+    neúspech 4+ → DC +2. Ak aj druhý hod padne 4+, stráca životy znova.
+    Družina pokračuje pri úspechu alebo po dvoch neúspechoch."""
     ss = st.session_state
     res2key = f"res2_{ds}_{dec['id']}"
-    base_dc = ss[f"res_{ds}_{dec['id']}"]["dc"]
-    new_dc = base_dc + 5
+    dc_delta = 2 if first_res["outcome"] == "fail" else 0
+    new_dc = opt["dc"] + dc_delta
+    cid = opt["postava_id"]
+    is_combat = dec["typ"] == "fyzicke"
 
     st.markdown("---")
-    st.info(f"🎯 **Druhá šanca** — iná postava, iný atribút, DC +5 (**DC {new_dc}**).")
+    delta_txt = "DC +2" if dc_delta else "rovnaké DC"
+    st.info(f"🎯 **Druhá šanca** — {opt['postava_ikona']} {opt['postava_nazov']}, "
+            f"{delta_txt} (**DC {new_dc}**).")
 
     if res2key in ss:
         r = ss[res2key]
-        c = PARTY_ALL[r["postava"]]
-        st.markdown(f"➡️ Druhý pokus: {c['icon']} {c['meno']} ({atr_name(r['atribut'])})")
         render_calc(r)
         st.markdown(f"**{outcome_label(r)}**")
         if r["total"] >= r["dc"]:
-            st.success("Druhá šanca zabrala — príbeh pokračuje s úspechom.")
+            st.success("Druhá šanca zabrala — družina pokračuje s úspechom.")
         else:
-            st.error("Ani druhá šanca nevyšla — GM dotvorí následok.")
+            strata, elim = apply_life_loss(ds, dec, r["opt"], r, attempt=2)
+            render_life_loss(strata, opt, elim)
+            st.error("Ani druhá šanca nevyšla — družina pokračuje ďalej.")
         return
 
-    ids = active_ids(entry)
-    col1, col2 = st.columns(2)
-    with col1:
-        pid = st.selectbox("Postava", ids,
-                           format_func=lambda i: f"{PARTY_ALL[i]['icon']} {PARTY_ALL[i]['meno']}",
-                           key=f"sc_p_{ds}_{dec['id']}")
-    with col2:
-        atr = st.selectbox("Atribút", STAT_KEYS,
-                           format_func=lambda k: STAT_NAMES[STAT_KEYS.index(k)],
-                           key=f"sc_a_{ds}_{dec['id']}")
-    if st.button("🎲 Hodiť druhú šancu", key=f"sc_btn_{ds}_{dec['id']}"):
+    if ss["hp"][cid]["current"] <= 0:
+        st.error(f"{opt['postava_nazov']} je eliminovaný/á — družina pokračuje ďalej.")
+        return
+
+    if st.button(f"🎲 {opt['postava_ikona']} {opt['postava_nazov']} — druhá šanca",
+                 key=f"sc_btn_{ds}_{dec['id']}"):
+        opt2 = dict(opt)
+        opt2["dc"] = new_dc
         ph = st.empty()
         roll = animated_roll(ph, accent)
-        r = evaluate({"atribut": atr, "bonus": 0, "dc": new_dc}, roll, pid,
-                     dec["typ"] == "fyzicke", ds)
+        r = evaluate(opt2, roll, cid, is_combat, ds)
+        r["idx"] = first_res.get("idx")
+        r["opt"] = opt2
+        r["is_second"] = True
         ss[res2key] = r
         st.rerun()
 
@@ -1000,7 +1062,12 @@ def render_char_card(cid, entry, accent):
 
         st.markdown("---")
         st.markdown(hp_bar_html(hp["current"], hp["max"]), unsafe_allow_html=True)
-        st.markdown(f"🛡️ **Výdrž: {hp['current']} / {hp['max']}**")
+        if hp["current"] <= 0:
+            st.markdown(f"☠️ **ELIMINOVANÁ postava** — 0 / {hp['max']} životov")
+            if st.button("✨ Oživiť (GM) — plné životy", key=f"revive_{cid}"):
+                hp["current"] = hp["max"]; st.rerun()
+        else:
+            st.markdown(f"❤️ **Životy: {hp['current']} / {hp['max']}**")
         h = st.columns(4)
         if h[0].button("−5", key=f"hp_m5_{cid}"):
             hp["current"] = max(0, hp["current"] - 5); st.rerun()
@@ -1012,11 +1079,11 @@ def render_char_card(cid, entry, accent):
             hp["current"] = min(hp["max"], hp["current"] + 5); st.rerun()
 
         if cid == "vedma":
-            if st.button("🔮 Použiť vešteckú guľu (−20 % max Výdrže)", key=f"orb_{cid}"):
+            if st.button("🔮 Použiť vešteckú guľu (−20 % max životov)", key=f"orb_{cid}"):
                 strata = math.ceil(hp["max"] * 0.20)
                 hp["max"] = max(1, hp["max"] - strata)
                 hp["current"] = min(hp["current"], hp["max"])
-                st.toast(f"Veštecká guľa: −{strata} max Výdrže", icon="🔮")
+                st.toast(f"Veštecká guľa: −{strata} max životov", icon="🔮")
                 st.rerun()
 
         st.markdown("---")
@@ -1151,22 +1218,26 @@ def render_sidebar(entry, accent):
                 st.toast(f"+{int(cnt)} bodov pre každú postavu", icon="🎖️")
                 st.rerun()
 
-        with st.expander("🌙 Nová noc (regenerácia)"):
+        with st.expander("🌙 Nová noc (regenerácia životov)"):
             typ = st.selectbox("Typ prostredia", list(REGEN_RULES.keys()),
-                               format_func=lambda k: REGEN_RULES[k]["label"], key="regen_typ")
-            if st.button("Regenerovať Výdrž družiny", key="regen_btn"):
+                               format_func=lambda k: f"{REGEN_RULES[k]['label']} — +{REGEN_RULES[k]['zivoty']} ❤️",
+                               key="regen_typ")
+            st.caption("Eliminované postavy (0 životov) sa neregenerujú — treba ich najprv oživiť.")
+            if st.button("Regenerovať životy družiny", key="regen_btn"):
                 rule = REGEN_RULES[typ]
+                gain = rule["zivoty"]
                 lines = []
                 for cid in active_ids(entry):
                     hp = ss["hp"][cid]
-                    gain = math.ceil(hp["max"] * rule["podiel"])
+                    if hp["current"] <= 0:       # eliminovaní sa neregenerujú
+                        continue
                     before = hp["current"]
                     hp["current"] = min(hp["max"], hp["current"] + gain)
                     if hp["current"] != before:
                         lines.append(f"{PARTY_ALL[cid]['icon']} +{hp['current']-before}")
                 if rule["cena"] > 0:
                     ss["gold"]["klan"] = max(0, ss["gold"]["klan"] - rule["cena"])
-                msg = f"Regenerácia {int(rule['podiel']*100)} %. " + (", ".join(lines) if lines else "Žiadna zmena.")
+                msg = f"Regenerácia +{gain} ❤️. " + (", ".join(lines) if lines else "Žiadna zmena.")
                 if rule["cena"] > 0:
                     msg += f"  (−{rule['cena']} zl z klanu)"
                 st.success(msg)
@@ -1262,16 +1333,16 @@ def use_ability(cid, ab, ds, entry, extra, free=False):
     elif mech == "obnov_zivoty_100":
         t = extra.get("target", cid)
         ss["hp"][t]["current"] = ss["hp"][t]["max"]
-        msg = f"💚 {short_name(t)} obnovený na plnú Výdrž."
+        msg = f"💚 {short_name(t)} obnovený/á na plné životy."
     elif mech == "obnov_zivoty_100_vsetci":
         for x in ids:
             ss["hp"][x]["current"] = ss["hp"][x]["max"]
-        msg = "💚 Celá družina na plnej Výdrži."
+        msg = "💚 Celá družina na plných životoch."
     elif mech == "obnov_zivoty_50_dvaja":
         for t in extra.get("targets", []):
             hp = ss["hp"][t]
             hp["current"] = min(hp["max"], hp["current"] + math.ceil(hp["max"] * 0.5))
-        msg = "💚 Dve postavy +50 % Výdrže."
+        msg = "💚 Dve postavy +50 % životov."
     elif mech == "bonus_atribut_vsetci":
         at = extra.get("atribut", "sila")
         ss["temp_bonusy"].setdefault(ds, []).append(
@@ -1287,7 +1358,7 @@ def use_ability(cid, ab, ds, entry, extra, free=False):
             hp["current"] = hp["max"]
         oh = ss["hp"][cid]
         oh["current"] = max(0, oh["current"] - absorb)
-        msg = f"🛡️ Obor prevzal {absorb} Výdrže za skupinu."
+        msg = f"🛡️ Obor prevzal {absorb} {zivoty_slovo(absorb)} za skupinu."
     elif mech == "skryta_moznost_d":
         ss[f"skryta_den_{ds}"] = {"postava": cid, "nazov": ab["nazov"]}
         msg = f"🎁 {ab['nazov']} — skrytá cesta odomknutá na CELÝ deň, v každom rozhodnutí."
@@ -1444,7 +1515,7 @@ def render_gm_calendar(entry):
         st.markdown("".join(rows), unsafe_allow_html=True)
 
 
-RESET_PREFIXES = ("res_", "res2_", "crit1_", "predmet_done_", "nakup_done_",
+RESET_PREFIXES = ("res_", "res2_", "crit1_", "zloss_", "predmet_done_", "nakup_done_",
                   "buy_", "buyer_", "buyerr_", "pay_", "shopdone_", "give_",
                   "leave_", "levelup20_", "sc_", "balloons_", "zlato_done_", "skryta_den_",
                   "d1_", "d2_", "d3_", "res1_", "res3_")

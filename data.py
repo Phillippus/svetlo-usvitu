@@ -123,7 +123,7 @@ ABILITIES = {
         "pasivna": "Vždy cíti prítomnosť kliatby alebo temnej mágie v okolí.",
         "aktivna": "Temná kliatba — spomalí alebo zmätie nepriateľa na jeden ťah.",
         "reakcia": "Tieňová bariéra — automaticky odrazí prvý útok temnou stenou.",
-        "extra":   "Veštecká guľa: videnie budúcnosti, cena −20 % max Výdrže za každé použitie.",
+        "extra":   "Veštecká guľa: videnie budúcnosti, cena −20 % max životov za každé použitie.",
     },
     "bojovnik": {
         "pasivna": "Meč Úsvit žiari namodro pri blízkosti tieňových tvorov.",
@@ -137,7 +137,7 @@ ABILITIES = {
     },
     "kuzelnik": {
         "pasivna": "Číta staré runy a magické nápisy automaticky bez hodu.",
-        "aktivna": "Arcanová explózia — silné kúzlo zasiahne až 3 nepriateľov, −10 % Výdrže.",
+        "aktivna": "Arcanová explózia — silné kúzlo zasiahne až 3 nepriateľov, −10 % životov.",
         "reakcia": "Magický štít — automatická bariéra pri nečakanom ohrození.",
     },
     "goblin": {
@@ -157,7 +157,7 @@ ABILITIES = {
     },
     "liecitelka": {
         "pasivna": "Odhadne závažnosť zranenia na prvý pohľad.",
-        "aktivna": "Liečivý dotyk — +100 % Výdrže jednej postave.",
+        "aktivna": "Liečivý dotyk — +100 % životov jednej postave.",
         "reakcia": "Protijed — okamžite neutralizuje jed.",
     },
     "velitel": {
@@ -244,7 +244,7 @@ SPECIAL_ABILITIES = {
     ],
     "medvedik": [
         {"id": "zazracne_objatie", "nazov": "Zázračné objatie", "mechanika": "obnov_zivoty_100", "ikona": "💚",
-         "popis": "Okamžite obnoví 100 % Výdrže jednej postave.",
+         "popis": "Okamžite obnoví 100 % životov jednej postave.",
          "max_pouziti": 2, "cena": None, "cena_popis": None},
         {"id": "zlaty_smiech", "nazov": "Zlatý smiech", "mechanika": "preskocit_rozhodnutie", "ikona": "⏭️",
          "popis": "Rozptýli napätie — preskočí jedno ťažké rozhodnutie bez následkov.",
@@ -258,9 +258,9 @@ SPECIAL_ABILITIES = {
     ],
     "liecitelka": [
         {"id": "obeta_liecitelky", "nazov": "Obeta liečiteľky", "mechanika": "obnov_zivoty_100_vsetci", "ikona": "💚",
-         "popis": "Obnoví VŠETKY postavy na 100 % Výdrže súčasne.",
+         "popis": "Obnoví VŠETKY postavy na 100 % životov súčasne.",
          "max_pouziti": 1, "cena": "liecitelka_10_percent",
-         "cena_popis": "Liečiteľka klesne na 10 % Výdrže."},
+         "cena_popis": "Liečiteľka klesne na 10 % životov."},
     ],
     "velitel": [
         {"id": "takticky_plan", "nazov": "Taktický plán", "mechanika": "auto_uspech_skupina", "ikona": "✅",
@@ -274,12 +274,12 @@ SPECIAL_ABILITIES = {
     ],
     "obor": [
         {"id": "zivy_stit", "nazov": "Živý štít", "mechanika": "prebrat_zasah_skupina", "ikona": "🛡️",
-         "popis": "Prevezme stratu Výdrže za celú skupinu naraz.",
+         "popis": "Prevezme stratu životov za celú skupinu naraz.",
          "max_pouziti": 1, "cena": None, "cena_popis": None},
     ],
     "bylinkarka": [
         {"id": "dvojite_liecenie", "nazov": "Dvojité liečenie", "mechanika": "obnov_zivoty_50_dvaja", "ikona": "💚",
-         "popis": "Obnoví 50 % Výdrže dvom postavám súčasne.",
+         "popis": "Obnoví 50 % životov dvom postavám súčasne.",
          "max_pouziti": 1, "cena": None, "cena_popis": None},
     ],
     "druid": [
@@ -300,7 +300,7 @@ SPECIAL_ABILITIES = {
 # =========================================================================
 STARTING_EQUIPMENT = {
     "vedma": [
-        {"nazov": "Veštecká guľa",  "vyhoda": "Predpovede, videnie budúcnosti", "nevyhoda": "−20 % Výdrže za každé použitie"},
+        {"nazov": "Veštecká guľa",  "vyhoda": "Predpovede, videnie budúcnosti", "nevyhoda": "−20 % životov za každé použitie"},
         {"nazov": "Grimoár kliatib","vyhoda": "+1 Mágia pri kliatbach",          "nevyhoda": "−1 Intelekt"},
         {"nazov": "Plášť tmy",       "vyhoda": "+1 Obratnosť, tichý pohyb",        "nevyhoda": "−1 Charizma"},
         {"nazov": "Prsteň veštenia", "vyhoda": "+1 Múdrosť",                       "nevyhoda": "−1 Výdrž za deň"},
@@ -344,7 +344,7 @@ STARTING_EQUIPMENT = {
         {"nazov": "Mapa krajiny",      "vyhoda": "+1 Intelekt k navigácii",        "nevyhoda": "Zastará po kapitole III"},
     ],
     "liecitelka": [
-        {"nazov": "Liečiteľský vak","vyhoda": "+30 % Výdrže, max 3× pred doplnením","nevyhoda": "Treba dopĺňať"},
+        {"nazov": "Liečiteľský vak","vyhoda": "+30 % životov, max 3× pred doplnením","nevyhoda": "Treba dopĺňať"},
         {"nazov": "Nožík",          "vyhoda": "+1 Obratnosť",                       "nevyhoda": "−2 Sila"},
         {"nazov": "Masti a bylinky","vyhoda": "Spomaľuje krvácanie",               "nevyhoda": "Doplniť po každej kapitole"},
         {"nazov": "Obvazy",         "vyhoda": "Zastaví krvácanie",                 "nevyhoda": "Jednorazové"},
@@ -375,7 +375,7 @@ STARTING_EQUIPMENT = {
         {"nazov": "Bylinkárska taška",   "vyhoda": "+2 Múdrosť k liečeniu",   "nevyhoda": "Dopĺňať"},
         {"nazov": "Sušené bylinky (10)", "vyhoda": "Rôzne efekty",            "nevyhoda": "Limitované"},
         {"nazov": "Jed na šípy (3×)",    "vyhoda": "+2 k hodu, −1 Výdrž/ťah nepriateľovi","nevyhoda": "3 použitia"},
-        {"nazov": "Liečivý čaj",         "vyhoda": "+20 % Výdrže mimo boja",  "nevyhoda": "Treba čas"},
+        {"nazov": "Liečivý čaj",         "vyhoda": "+20 % životov mimo boja",  "nevyhoda": "Treba čas"},
         {"nazov": "Nožík",               "vyhoda": "+1 Obratnosť",            "nevyhoda": "−2 Sila"},
     ],
     "druid": [
@@ -424,7 +424,7 @@ WEAPONS_SHOP = [
 EXPENSES = [
     {"polozka": "Nocľah + jedlo (regenerácia +30 %)", "cena": "10 zl"},
     {"polozka": "Oprava poškodenej výbavy",           "cena": "15–30 zl"},
-    {"polozka": "Lektvar liečenia (+50 % Výdrže)",     "cena": "25 zl"},
+    {"polozka": "Lektvar liečenia (+50 % životov)",     "cena": "25 zl"},
     {"polozka": "Zvitok kúzla",                        "cena": "40 zl"},
     {"polozka": "Doplnenie šípov (20 ks)",             "cena": "20 zl"},
     {"polozka": "Doplnenie byliniek",                  "cena": "15 zl"},
@@ -457,12 +457,13 @@ MILESTONE_LABELS = {
     "kapitola":        "Splnenie kapitoly",
 }
 
-# Regenerácia "Nová noc": typ -> (% z max Výdrže, cena v zlate z klanu)
+# Regenerácia "Nová noc": typ -> (počet životov naspäť, cena v zlate z klanu).
+# Pevné čísla (životy sú malé celé čísla). Prebieha každý deň, eliminovaní sa neregenerujú.
 REGEN_RULES = {
-    "bezpecny":  {"label": "Bezpečný tábor / domov", "podiel": 0.20, "cena": 0},
-    "nebezpecny":{"label": "Nebezpečné prostredie (púšť, pevnosť)", "podiel": 0.10, "cena": 0},
-    "bez_jedla": {"label": "Bez jedla alebo vody",   "podiel": 0.00, "cena": 0},
-    "krcma":     {"label": "Nocľah v krčme / dedine (−10 zlatých)", "podiel": 0.30, "cena": 10},
+    "bezpecny":  {"label": "Bezpečný tábor / domov", "zivoty": 3, "cena": 0},
+    "nebezpecny":{"label": "Nebezpečné prostredie (púšť, pevnosť)", "zivoty": 1, "cena": 0},
+    "bez_jedla": {"label": "Bez jedla alebo vody",   "zivoty": 0, "cena": 0},
+    "krcma":     {"label": "Nocľah v krčme / dedine (−10 zlatých)", "zivoty": 4, "cena": 10},
 }
 
 # Delenie ziskov: 60 % osobné, 40 % klanové
@@ -723,7 +724,7 @@ CAMPAIGN.update({
    {"nazov": "Zvonček na šťastie", "pre_koho": "medvedik", "kde": "najst", "cena": 0,
     "vyhody": "Varuje pred skrytým nebezpečenstvom", "nevyhody": "Občas falošný poplach", "jednorazovy": False, "pocet_pouziti": 0},
    {"nazov": "Sivomilova masť", "pre_koho": "vsetci", "kde": "kupit", "cena": 10,
-    "vyhody": "+15 % Výdrže mimo boja", "nevyhody": "—", "jednorazovy": True, "pocet_pouziti": 1}],
+    "vyhody": "+15 % životov mimo boja", "nevyhody": "—", "jednorazovy": True, "pocet_pouziti": 1}],
  "zlato_odmena": {"osobne": 4, "klanove": 2, "dovod": "Získanie sprievodcu Sivomila"},
  "milnik": None,
  "outro": "Sivomil sa ponúkne sprevádzať družinu, no varuje pred goblinmi pri lese.",
@@ -1115,7 +1116,7 @@ CAMPAIGN.update({
     "result_near": "Šípy sú lacnejšie, no nižšej kvality.",
     "result_fail": "Šípy sú vypredané - kupci nemajú dosť."},
    {"label": "B) Lektvar liečenia (25 zl)", "postava": "vedma", "atribut": "intelekt", "bonus": 0, "dc": 13,
-    "result_success": "Lektvar liečenia (+50 % Výdrže) putuje do batoha.",
+    "result_success": "Lektvar liečenia (+50 % životov) putuje do batoha.",
     "result_near": "Lektvar je riedený - účinok len +30 %.",
     "result_fail": "Lektvar je príliš drahý a treba ho nechať."},
    {"label": "C) Vyjednáte zľavu na všetko", "postava": "vedma", "atribut": "charizma", "bonus": 0, "dc": 16,
@@ -1126,7 +1127,7 @@ CAMPAIGN.update({
    {"nazov": "Zlatý odznak slnka", "pre_koho": "medvedik", "kde": "najst", "cena": 0,
     "vyhody": "+1 Charizma pri Klane Zlatého slnka", "nevyhody": "—", "jednorazovy": False, "pocet_pouziti": 0},
    {"nazov": "Lektvar liečenia", "pre_koho": "vsetci", "kde": "kupit", "cena": 25,
-    "vyhody": "+50 % Výdrže", "nevyhody": "Jednorazový", "jednorazovy": True, "pocet_pouziti": 1}],
+    "vyhody": "+50 % životov", "nevyhody": "Jednorazový", "jednorazovy": True, "pocet_pouziti": 1}],
  "zlato_odmena": {"osobne": 4, "klanove": 2, "dovod": "Pomoc kupcom a získanie informácií"},
  "milnik": None,
  "outro": "Búrkové mraky sa sťahujú na obzore.",
@@ -1754,7 +1755,7 @@ CAMPAIGN.update({
     "result_near": "Zvieratá sú plaché - len útržky správ.",
     "result_fail": "V okolí niet zvierat, čo by pomohli."},
    {"label": "C) Vedma spojí sen s vešteckou guľou", "postava": "vedma", "atribut": "magia", "bonus": 0, "dc": 19,
-    "result_success": "Guľa potvrdí sen - obraz Aškara je jasný (cena: −20 % Výdrže Vedmy).",
+    "result_success": "Guľa potvrdí sen - obraz Aškara je jasný (cena: −20 % životov Vedmy).",
     "result_near": "Guľa ukáže len hmlistý obraz.",
     "result_fail": "Guľa stmavne - vízia sa neukáže."}]},
  "items_day": [
@@ -2961,7 +2962,7 @@ CAMPAIGN.update({
    {"label": "C) Kúzelník zosiela vlny svetla pozdĺž hradby", "postava": "kuzelnik", "atribut": "magia", "bonus": 0, "dc": 22,
     "result_success": "Tiene sa sťahujú pred jasným svitom.",
     "result_near": "Svetlo tiene len zatlačí, nezničí.",
-    "result_fail": "Kúzlo vyčerpá Kúzelníka (−10 % Výdrže)."}]},
+    "result_fail": "Kúzlo vyčerpá Kúzelníka (−10 % životov)."}]},
  "decision2": {"prompt": "Kde sú počas útoku v bezpečí najmladší?", "type": "takticke", "options": [
    {"label": "A) Hlboko v pivnici radnice", "postava": "medvedik", "atribut": "mudrost", "bonus": 0, "dc": 14,
     "result_success": "Úplne v bezpečí, hoci nervózni z hluku vonku.",
@@ -2990,7 +2991,7 @@ CAMPAIGN.update({
     "result_fail": "Olej je vlhký a oheň nechytí."}]},
  "items_day": [
    {"nazov": "Lektvar liečenia", "pre_koho": "vsetci", "kde": "kupit", "cena": 25,
-    "vyhody": "+50 % Výdrže", "nevyhody": "Jednorazový", "jednorazovy": True, "pocet_pouziti": 1}],
+    "vyhody": "+50 % životov", "nevyhody": "Jednorazový", "jednorazovy": True, "pocet_pouziti": 1}],
  "zlato_odmena": {"osobne": 6, "klanove": 6, "dovod": "Odrazenie prvej vlny tieňov"},
  "milnik": {"typ": "mini_boss", "body": 2, "popis": "Prvá vlna tieňových tvorov"},
  "outro": "Tiene ustupujú s prvým svitaním. Havran sa vracia s odpoveďou - no v núdzi.",
@@ -3598,7 +3599,7 @@ CAMPAIGN.update({
    {"label": "B) Kúzelník vedie útok prvý", "postava": "kuzelnik", "atribut": "magia", "bonus": 0, "dc": 28,
     "result_success": "Žiarivé kúzlo prerazí cez tmu ako prvý lúč.",
     "result_near": "Kúzlo tmu prereže len napoly.",
-    "result_fail": "Tma kúzlo pohltí (−10 % Výdrže)."},
+    "result_fail": "Tma kúzlo pohltí (−10 % životov)."},
    {"label": "C) Všetci útočia naraz, v rovnakej chvíli", "postava": "bojovnik", "atribut": "charizma", "bonus": 0, "dc": 27,
     "result_success": "Mohutný, spoločný úder zasiahne najsilnejšie zo všetkých možností.",
     "result_near": "Útoky sa rozídu - sila je čiastočná.",
@@ -3848,7 +3849,7 @@ CAMPAIGN.update({
    {"nazov": "Zbalený batoh na cestu", "pre_koho": "vsetci", "kde": "najst", "cena": 0,
     "vyhody": "Všetko pripravené - pokojný štart kampane", "nevyhody": "—", "jednorazovy": False, "pocet_pouziti": 0},
    {"nazov": "Lektvar liečenia (na skúšku)", "pre_koho": "vsetci", "kde": "kupit", "cena": 25,
-    "vyhody": "+50 % Výdrže — vyskúšajte si nákup za zlato", "nevyhody": "Jednorazový", "jednorazovy": True, "pocet_pouziti": 1}],
+    "vyhody": "+50 % životov — vyskúšajte si nákup za zlato", "nevyhody": "Jednorazový", "jednorazovy": True, "pocet_pouziti": 1}],
  "zlato_odmena": {"osobne": 5, "klanove": 5, "dovod": "Skúšobné: dobré prípravy na cestu"},
  "milnik": None,
  "outro": "Všetko je pripravené. Dnes končí nácvik — zajtra ráno (1.7.) sa nad Tichým Dolom stiahne hmla a začne sa skutočné dobrodružstvo!",
@@ -3870,14 +3871,14 @@ MARKETS = {
             {"nazov": "Elfský dlhý luk", "ikona": "🏹", "vyhoda": "+3 Obratnosť, dlhší dostrel", "nevyhoda": "−1 Sila", "cena": 65},
             {"nazov": "Meč železnej vôle", "ikona": "⚔️", "vyhoda": "+2 Sila, +1 Obratnosť", "nevyhoda": "ťažký", "cena": 55},
             {"nazov": "Štít dubového dreva", "ikona": "🛡️", "vyhoda": "+2 Výdrž", "nevyhoda": "−1 Obratnosť", "cena": 40},
-            {"nazov": "Lektvar liečenia", "ikona": "🧪", "vyhoda": "+50 % Výdrže", "nevyhoda": "jednorazový", "cena": 25, "jednorazovy": True},
+            {"nazov": "Lektvar liečenia", "ikona": "🧪", "vyhoda": "+50 % životov", "nevyhoda": "jednorazový", "cena": 25, "jednorazovy": True},
             {"nazov": "Zásoby jedla", "ikona": "🍖", "vyhoda": "+5 % regenerácie/noc", "nevyhoda": "minie sa", "cena": 8, "jednorazovy": True},
             {"nazov": "Doplnenie šípov (20 ks)", "ikona": "🎯", "vyhoda": "Plný tulec", "nevyhoda": "—", "cena": 20, "jednorazovy": True},
         ]},
     "lesny": {"nazov": "Lesný trh druidov", "ikona": "🌿",
         "popis": "V Háji Strážneho ducha — prírodné liečivá a zvierací spoločníci.",
         "polozky": [
-            {"nazov": "Liečivé byliny (zväzok)", "ikona": "🌱", "vyhoda": "+20 % Výdrže mimo boja", "nevyhoda": "treba čas", "cena": 18, "jednorazovy": True},
+            {"nazov": "Liečivé byliny (zväzok)", "ikona": "🌱", "vyhoda": "+20 % životov mimo boja", "nevyhoda": "treba čas", "cena": 18, "jednorazovy": True},
             {"nazov": "Uspávací prášok", "ikona": "💤", "vyhoda": "Uspí jedného nepriateľa", "nevyhoda": "jednorazový", "cena": 22, "jednorazovy": True},
             {"nazov": "Sokol-spoločník", "ikona": "🦅", "vyhoda": "Prieskum z výšky", "nevyhoda": "potrebuje krmivo", "cena": 50},
             {"nazov": "Plášť z lístia", "ikona": "🍃", "vyhoda": "+2 Obratnosť v lese", "nevyhoda": "mimo lesa bez efektu", "cena": 30},
@@ -3890,7 +3891,7 @@ MARKETS = {
             {"nazov": "Lektvar sily", "ikona": "💪", "vyhoda": "+4 Sila na deň", "nevyhoda": "−1 Obratnosť na deň", "cena": 40, "jednorazovy": True},
             {"nazov": "Lektvar neviditeľnosti", "ikona": "🫥", "vyhoda": "Neviditeľnosť na chvíľu", "nevyhoda": "jednorazový", "cena": 45, "jednorazovy": True},
             {"nazov": "Výbušná fľaša", "ikona": "🧨", "vyhoda": "Zasiahne oblasť", "nevyhoda": "hlučné", "cena": 30, "jednorazovy": True},
-            {"nazov": "Lektvar liečenia", "ikona": "🧪", "vyhoda": "+50 % Výdrže", "nevyhoda": "jednorazový", "cena": 25, "jednorazovy": True},
+            {"nazov": "Lektvar liečenia", "ikona": "🧪", "vyhoda": "+50 % životov", "nevyhoda": "jednorazový", "cena": 25, "jednorazovy": True},
         ]},
     "klanovy": {"nazov": "Klanový trh (Taliansko)", "ikona": "🏕️",
         "popis": "Exotický tovar Klanu Zlatého Slnka — len počas Talianska (18.–25.7.).",
@@ -3926,7 +3927,7 @@ MARKETS = {
             {"nazov": "Kryštál many", "ikona": "🔷", "vyhoda": "+3 Mágia", "nevyhoda": "krehký", "cena": 80},
             {"nazov": "Závoj tieňov", "ikona": "🌫️", "vyhoda": "+3 Obratnosť v noci", "nevyhoda": "cez deň −1 Obratnosť", "cena": 55},
             {"nazov": "Fľaša púštnej vody", "ikona": "💧", "vyhoda": "+10 % regenerácie aj bez tábora", "nevyhoda": "jednorazová", "cena": 18, "jednorazovy": True},
-            {"nazov": "Veštecké kosti", "ikona": "🦴", "vyhoda": "1× náhľad do budúcnosti bez ceny Výdrže", "nevyhoda": "jednorazové", "cena": 50, "jednorazovy": True},
+            {"nazov": "Veštecké kosti", "ikona": "🦴", "vyhoda": "1× náhľad do budúcnosti bez ceny životov", "nevyhoda": "jednorazové", "cena": 50, "jednorazovy": True},
         ]},
     "karavana": {"nazov": "Putovná karavána", "ikona": "🎪",
         "popis": "Objaví sa nečakane — neobvyklé predmety, hry šťastia, falzifikáty aj poklady.",
