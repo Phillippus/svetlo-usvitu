@@ -1766,6 +1766,7 @@ def render_gm_calendar(entry):
             tier = day_tier(e)
             decs = build_decisions(ds, e)
             bezne = sum(1 for d in decs if d["typ"] not in ("predmet", "nakup", "detske", "timova"))
+            tim = sum(1 for d in decs if d["typ"] == "timova")
             target = target_bezne(e)
             mark = "✅" if bezne >= target else f"⚠️ {bezne}/{target}"
             d = datetime.date.fromisoformat(ds)
@@ -1774,11 +1775,15 @@ def render_gm_calendar(entry):
             tal = ("<span style='background:#d4a01733;color:#d4a017;border:1px solid #d4a01766;"
                    "border-radius:4px;padding:0 4px;font-size:0.72rem;margin-left:4px'>"
                    "🇮🇹 Taliansko ×2</span>") if e.get("group") == "velka" else ""
+            # počet tímových scén (bossovia / mini-bossovia)
+            tm = (f"<span style='background:#6a4c9333;color:#b39ddb;border:1px solid #6a4c9366;"
+                  f"border-radius:4px;padding:0 4px;font-size:0.72rem;margin-left:4px'>"
+                  f"🤝 {tim}× tímová</span>") if tim else ""
             rows.append(
                 f"<div style='border-left:4px solid {col};background:{col}1f;padding:3px 9px;"
                 f"margin:3px 0 3px 12px;border-radius:5px;font-size:0.86rem'>"
                 f"{KIND_LABEL.get(tier, '')} · <b>D{e['day']}</b> {d.strftime('%d.%m.')} — "
-                f"{e['title']} · {bezne}/{target} {mark}{tal}</div>")
+                f"{e['title']} · {bezne}/{target} {mark}{tal}{tm}</div>")
     with st.expander("🔒 GM kalendár — typy dní a počty rozhodnutí (táto + nasledujúca kapitola)",
                      expanded=False):
         st.caption("Cieľ bežných rozhodnutí: 🌿 Pokojný 3 · 🗺️ Bežný 4–5 · ⚡ Rušný 6 · "
