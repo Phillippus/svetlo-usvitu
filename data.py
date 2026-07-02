@@ -6394,11 +6394,11 @@ TEAM_DECISIONS = {
               "Štyri páry rúk pritlačia tieň k zemi — nemôže sa ani pohnúť, kým ho ostatní dobijú.",
               "Tieň sa myká, no spoločná sila ho na kolenách udrží.",
               "Tieň sa vzoprie a rozhodí ich — treba to skúsiť inak."),
-        _team("Tieň možno rozohnať len spojeným Svetlom — mágovia a liečitelia oboch rodov splynú v jedno.",
+        _team("Tieň treba zaliať spojeným Svetlom — mágovia a liečitelia oboch rodov splynú v jedno.",
               [("vedma", "magia"), ("kuzelnik", "magia"), ("liecitelka", "magia"), ("druid", "magia")], 12,
-              "Štyri prúdy svetla sa spoja do oslepivého lúča — tieň s revom mizne v jase.",
-              "Svetlo tieň takmer rozptýli, posledný cár sa ešte drží.",
-              "Prúdy sa rozladia a svetlo zhasne skôr, než tieň dostihne.")],
+              "Štyri prúdy svetla sa spoja do oslepivého lúča — tieň sa scvrkne a zavýja, oslabený a odhalený pre záverečný úder.",
+              "Svetlo tieň zoslabí, posledný cár temnoty sa ešte drží.",
+              "Prúdy sa rozladia a svetlo zhasne skôr, než tieň zasiahne.")],
     # ── Kapitola V ──
     "2026-08-07": [  # Zrkadlový chrám (mini)
         _team("Zrkadlá chrámu treba prehliadnuť naraz — čistá myseľ družiny sa spojí proti ilúzii.",
@@ -6415,7 +6415,7 @@ TEAM_DECISIONS = {
     "2026-08-11": [  # Súboj s pobočníkom (BOSS)
         _team("Aškarovho pobočníka treba zasiahnuť spoločným úderom — sila, mágia a mrštnosť naraz.",
               [("bojovnik", "sila"), ("kuzelnik", "magia"), ("elf", "obratnost")], 13,
-              "Meč, kúzlo a šíp dopadnú v jeden okamih — pobočník sa zlomí pod trojitým úderom.",
+              "Meč, kúzlo a šíp dopadnú v jeden okamih — pobočník sa zlomí na kolená a jeho obrana padá.",
               "Úder ho ťažko zraní, ešte sa drží na nohách.",
               "Údery sa rozídu v čase a pobočník ich odrazí.")],
     # ── Kapitola VI ──
@@ -6446,7 +6446,7 @@ TEAM_DECISIONS = {
     "2026-08-26": [  # Pobočník brány (BOSS)
         _team("Pobočníka brány treba zdolať spoločným náporom — sila, mágia a šípy naraz.",
               [("bojovnik", "sila"), ("kuzelnik", "magia"), ("elf", "obratnost")], 14,
-              "Trojitý úder pobočníka zlomí — brána je voľná.",
+              "Trojitý úder zrazí pobočníka na kolená a odhalí jeho slabinu — brána sa otriasa.",
               "Úder ho ťažko zraní, ešte vzdoruje.",
               "Údery sa rozídu a pobočník ich odrazí.")],
     "2026-08-29": [  # Posledná bitka I (BOSS)
@@ -6494,6 +6494,28 @@ def build_decisions(ds, entry):
             "options": opts_norm,
             "option_d": _norm_option_d(d.get("option_d"), tier, [o["dc"] for o in opts_norm]),
         })
+    # 🤝 tímové scény (len bossovia / mini-bossovia) — spojené atribúty, jedna kocka.
+    # Renderujú sa POČAS boja (po base, pred extra), aby neprišli až po porazení bossa.
+    # Výnimka: Morgrathovo finále — tam je tímová scéna vyvrcholenie, ostáva NA KONCI.
+    team_out = []
+    for ti, td in enumerate(TEAM_DECISIONS.get(ds, []), 1):
+        contribs = []
+        for c, a in td["contribs"]:
+            p = PARTY_ALL.get(c, {"meno": c, "icon": "❔"})
+            contribs.append({"postava_id": c, "atribut_key": a,
+                             "postava_nazov": p["meno"], "postava_ikona": p["icon"],
+                             "atr_start": stats_dict(c).get(a, 0)})
+        dc = sum(x["atr_start"] for x in contribs) + td["need"]
+        team_out.append({
+            "id": f"tim{ti}", "typ": "timova", "prompt": td["prompt"],
+            "contribs": contribs, "dc": dc,
+            "result_success": td["result_success"],
+            "result_near": td["result_near"],
+            "result_fail": td["result_fail"],
+        })
+    finale = (ds == MORGRATH_FINALE_DS)
+    if not finale:
+        out.extend(team_out)                 # tímové scény počas boja
     # extra rozhodnutia pre ťažšie dni (DC odvodené od atribútu postavy podľa tieru)
     xi = 4
     for d in (EXTRA_DECISIONS.get(ds, []) + EXTRA_DECISIONS_VI.get(ds, [])
@@ -6507,24 +6529,8 @@ def build_decisions(ds, entry):
             "option_d": _norm_option_d(d.get("option_d"), tier, [o["dc"] for o in opts_norm]),
         })
         xi += 1
-    # 🤝 tímové scény (len bossovia / mini-bossovia) — spojené atribúty, jedna kocka
-    ti = 1
-    for td in TEAM_DECISIONS.get(ds, []):
-        contribs = []
-        for c, a in td["contribs"]:
-            p = PARTY_ALL.get(c, {"meno": c, "icon": "❔"})
-            contribs.append({"postava_id": c, "atribut_key": a,
-                             "postava_nazov": p["meno"], "postava_ikona": p["icon"],
-                             "atr_start": stats_dict(c).get(a, 0)})
-        dc = sum(x["atr_start"] for x in contribs) + td["need"]
-        out.append({
-            "id": f"tim{ti}", "typ": "timova", "prompt": td["prompt"],
-            "contribs": contribs, "dc": dc,
-            "result_success": td["result_success"],
-            "result_near": td["result_near"],
-            "result_fail": td["result_fail"],
-        })
-        ti += 1
+    if finale:
+        out.extend(team_out)                 # finále — tímová scéna ako vyvrcholenie na konci
     # detské — posledné z rozhodnutí (pred predmetom a nákupom); DC sa NEzvyšuje (pre najmenších)
     out.append(detske_for_day(ds))
     # nájdené predmety -> predmetové rozhodnutia
