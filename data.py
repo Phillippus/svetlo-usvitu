@@ -6363,9 +6363,9 @@ EXTRA_DECISIONS_TALIANSKO = {
 # Viac postáv spojí atribúty a hádže sa JEDNOU kockou proti veľmi vysokému DC.
 # DC = súčet (štartových) atribútov postáv + need. Mimo Talianska len malá družina;
 # v Taliansku (D21 mini, D22 boss) plný roster. contribs = [(postava, atribut), …].
-def _team(prompt, contribs, need, succ, near, fail):
+def _team(prompt, contribs, need, succ, near, fail, finale=False):
     return {"prompt": prompt, "contribs": contribs, "need": need,
-            "result_success": succ, "result_near": near, "result_fail": fail}
+            "result_success": succ, "result_near": near, "result_fail": fail, "finale": finale}
 
 
 TEAM_DECISIONS = {
@@ -6481,7 +6481,8 @@ TEAM_DECISIONS = {
                ("elf", "obratnost"), ("goblin", "stastie"), ("medvedik", "stastie")], 15,
               "Šesť sŕdc splynie do jediného Svetla Úsvitu — oslepivý úder rozotne Morgratha a tieň sa navždy rozplýva. Svetlo sa vrátilo do sveta.",
               "Spojené Svetlo Morgratha zatlačí na samý okraj zániku — ešte jeden spoločný úder!",
-              "Načasovanie zlyhá a Svetlo sa rozptýli — družina sa musí zomknúť a skúsiť znova.")],
+              "Načasovanie zlyhá a Svetlo sa rozptýli — družina sa musí zomknúť a skúsiť znova.",
+              finale=True)],
 }
 
 
@@ -6532,6 +6533,7 @@ def build_decisions(ds, entry):
             "result_success": td["result_success"],
             "result_near": td["result_near"],
             "result_fail": td["result_fail"],
+            "finale": td.get("finale", False),
         })
     finale = (ds == MORGRATH_FINALE_DS)
     if not finale:

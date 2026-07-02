@@ -545,18 +545,34 @@ def render_team_decision(n, ds, dec, accent):
         zisk = ", ".join(f"{c['postava_ikona']} +1 {atr_name(c['atribut_key'])}" for c in dec["contribs"])
         st.success(f"💥 **Dokonalá súhra!** Každá postava rastie: {zisk}")
 
-    # ❌ neúspech → boss ich spoločný nápor odrazí a kontruje: každá postava −1 život
+    # ❌ neúspech → −1 život každému; ak bol súčet o 20+ menej ako DC (pokus nad ich sily),
+    #    celá zúčastnená skupina PADNE (koniec — treba znova, alebo GM oživí).
     if r["outcome"] == "fail":
+        wipe = (r["dc"] - r["suma"]) >= 20
         lkey = f"tloss_{ds}_{dec['id']}"
         if not ss.get(lkey):
             for c in dec["contribs"]:
                 hp = ss["hp"][c["postava_id"]]
-                hp["current"] = max(0, hp["current"] - 1)
+                hp["current"] = 0 if wipe else max(0, hp["current"] - 1)
             ss[lkey] = True
-        elim = [short_name(c["postava_id"]) for c in dec["contribs"]
-                if ss["hp"][c["postava_id"]]["current"] <= 0]
-        chvost = f" — eliminovaní: {', '.join(elim)} ☠️" if elim else ""
-        st.markdown(f"💔 **Odrazený nápor:** každá zúčastnená postava **−1 život**{chvost}.")
+        if wipe:
+            konec = dec.get("finale")
+            st.markdown(
+                "<div style='text-align:center;padding:0.9em;margin-top:6px;background:#5c000033;"
+                "border:2px solid #f85149;border-radius:10px'>"
+                f"<div style='font-size:1.35rem;color:#f85149;font-weight:bold'>"
+                f"{'💀 KONIEC — SVETLO POHASLO 💀' if konec else '☠️ CELÁ SKUPINA PADLA ☠️'}</div>"
+                "<div style='color:#ddd;margin-top:6px'>Pokus bol ďaleko nad ich sily — spojený úder "
+                "sa zlomil a tieň zmietol celú skupinu k zemi.</div>"
+                "<div style='color:#f4c430;margin-top:8px'>Kým bije čo i len jedno srdce, nádej žije — "
+                "<b>zomknite sa a skúste to znova</b> (alebo nech GM oživí padlých). "
+                "Nabudúce najprv posilnite atribúty míľnikovými bodmi! 🎖️</div></div>",
+                unsafe_allow_html=True)
+        else:
+            elim = [short_name(c["postava_id"]) for c in dec["contribs"]
+                    if ss["hp"][c["postava_id"]]["current"] <= 0]
+            chvost = f" — eliminovaní: {', '.join(elim)} ☠️" if elim else ""
+            st.markdown(f"💔 **Odrazený nápor:** každá zúčastnená postava **−1 život**{chvost}.")
 
     if st.button(f"↩️ Znova tímovú scénu {n}", key=f"treset_{ds}_{dec['id']}"):
         for k in (reskey, f"tcrit_{ds}_{dec['id']}", f"tloss_{ds}_{dec['id']}"):
