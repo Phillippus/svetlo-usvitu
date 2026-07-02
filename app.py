@@ -155,7 +155,7 @@ _ABILITY_USE_BUMP = {"temnozrak": 2, "zvieraci_prieskum": 1}
 SAVE_CORE = ["stats", "hp", "gold", "inventory", "milestone_points",
              "abilities", "active_effects", "temp_bonusy", "pending_ability"]
 PROGRESS_PREFIXES = ("res_", "res2_", "crit1_", "zloss_", "regen_done_", "predmet_done_",
-                     "nakup_done_", "levelup20_", "balloons_", "zlato_done_",
+                     "nakup_done_", "levelup20_", "balloons_", "zlato_done_", "orb_used_",
                      "stastna_kocka_", "dvojita_odmena_", "bojovnik_hranica_", "skip_",
                      "skryta_den_")
 
@@ -1205,12 +1205,22 @@ def render_char_card(cid, entry, accent):
                 hp["current"] = min(hp["max"], hp["current"] + 5); st.rerun()
 
         if cid == "vedma":
-            if st.button("🔮 Použiť vešteckú guľu (−20 % max životov)", key=f"orb_{cid}"):
+            _sel = ss.get("sel_date")
+            ds_today = _sel.isoformat() if hasattr(_sel, "isoformat") else datetime.date.today().isoformat()
+            orbkey = f"orb_used_{ds_today}"
+            used = ss.get(orbkey, False)
+            if st.button("🔮 Veštecká guľa — prorocká vízia (+3 k hodom dnes, −20 % max životov)",
+                         key=f"orb_{cid}", disabled=used):
                 strata = math.ceil(hp["max"] * 0.20)
                 hp["max"] = max(1, hp["max"] - strata)
                 hp["current"] = min(hp["current"], hp["max"])
-                st.toast(f"Veštecká guľa: −{strata} max životov", icon="🔮")
+                ss["temp_bonusy"].setdefault(ds_today, []).append(
+                    {"postava": "vedma", "atribut": "all", "hodnota": 3, "zdroj": "Veštecká guľa"})
+                ss[orbkey] = True
+                st.toast(f"Veštecká guľa: +3 k hodom dnes, −{strata} max životov", icon="🔮")
                 st.rerun()
+            if used:
+                st.caption("🔮 Veštecká guľa dnes už použitá (+3 k hodom aktívne).")
 
         st.markdown("---")
         gold_input("💰 Osobné zlato", cid)
