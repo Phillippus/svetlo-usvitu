@@ -1215,7 +1215,6 @@ def render_regen_decision(ds, entry):
         st.rerun()
 
     if zone == "dedina":
-        klan = ss["gold"]["klan"]
         CENA_OS = 10                                   # každý platí za seba z vlastného
         moze = [c for c in zivi if ss["gold"].get(c, 0) >= CENA_OS]
         chudobni = [short_name(c) for c in zivi if ss["gold"].get(c, 0) < CENA_OS]
@@ -1243,17 +1242,28 @@ def render_regen_decision(ds, entry):
         if st.button("🏕️ Tábor medzi ľuďmi (dedina) — zdarma → **+3** každému",
                      key=f"regen_tabor_ludia_{ds}"):
             _apply({c: 3 for c in zivi}, "Tábor medzi ľuďmi (+3 každému)")
-        st.markdown("**⚕️ Lekár** — 15 zl za jednu postavu (**+5**), ostatní idú do tábora (**+3**):")
+        st.markdown("**⚕️ Lekár** — 15 zl z vlastného za jednu postavu (**+5**), ostatní tábor (**+3**):")
+        _zlato = {c: ss["gold"].get(c, 0) for c in zivi}
         lc = st.selectbox("Koho k lekárovi", zivi,
-                          format_func=lambda c: f"{PARTY_ALL[c]['icon']} {short_name(c)}",
+                          format_func=lambda c: f"{PARTY_ALL[c]['icon']} {short_name(c)} ({_zlato[c]} zl)",
                           key=f"regen_lekar_sel_{ds}")
-        dost_lekar = klan >= 15
-        if st.button(f"⚕️ K lekárovi: {short_name(lc)} (+5, −15 zl), ostatní tábor (+3)",
+        dost_lekar = ss["gold"].get(lc, 0) >= 15
+        if st.button(f"⚕️ K lekárovi: {short_name(lc)} (+5, −15 zl z vlastného), ostatní tábor (+3)",
                      key=f"regen_lekar_{ds}", disabled=not dost_lekar):
-            _apply({c: (5 if c == lc else 3) for c in zivi},
-                   f"Lekár: {short_name(lc)} +5, ostatní +3 (−15 zl z klanu)", 15)
+            ss["gold"][lc] -= 15
+            lines = []
+            for c in zivi:
+                _regen_heal(c, 5 if c == lc else 3)
+                b = apply_regen_bonuses(c)
+                if b:
+                    lines.append(f"{PARTY_ALL[c]['icon']}+{b}")
+            popis = f"Lekár: {short_name(lc)} +5 (−15 zl z vlastného), ostatní +3"
+            if lines:
+                popis += "  ·  🍖 zásoby: " + ", ".join(lines)
+            ss[donekey] = popis
+            st.rerun()
         if not dost_lekar:
-            st.caption(f"⚠️ Na lekára treba 15 zl (v klane je {klan}).")
+            st.caption(f"⚠️ {short_name(lc)} nemá 15 zl na lekára (má {ss['gold'].get(lc, 0)} zl).")
 
     elif zone == "divocina":
         if st.button("🌲 Tábor v divočine / lese — zdarma → **+2** každému", key=f"regen_les_{ds}"):
