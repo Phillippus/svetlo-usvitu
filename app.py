@@ -22,11 +22,11 @@ from data import (
     PARTY_MALA, PARTY_VELKA_DOPLNOK, PARTY_ALL, CLANS, CLAN_OF,
     STATS, STAT_KEYS, STAT_LABELS, STAT_NAMES, stats_dict, start_vydrz,
     ABILITIES, SPECIAL_ABILITIES, STARTING_EQUIPMENT, LEGENDARY_ITEMS, WEAPONS_SHOP, EXPENSES,
-    DC_SCALE, MILESTONE_POINTS, MILESTONE_LABELS, REGEN_RULES, ZISK_OSOBNE_PODIEL,
+    DC_SCALE, MILESTONE_POINTS, MILESTONE_LABELS, ZISK_OSOBNE_PODIEL,
     WORLD_INTRO, GROUP_SCHEDULE,
     build_decisions, shop_for_day, gm_color_for_day, day_type_label,
     day_tier, TARGET_BEZNE, KIND_LABEL, target_bezne,
-    normalize_item, item_allowed_for,
+    normalize_item, item_allowed_for, MARKET_DAYS,
 )
 
 try:
@@ -154,8 +154,8 @@ _ABILITY_USE_BUMP = {"temnozrak": 2, "zvieraci_prieskum": 1}
 
 SAVE_CORE = ["stats", "hp", "gold", "inventory", "milestone_points",
              "abilities", "active_effects", "temp_bonusy", "pending_ability"]
-PROGRESS_PREFIXES = ("res_", "res2_", "crit1_", "zloss_", "predmet_done_", "nakup_done_",
-                     "levelup20_", "balloons_", "zlato_done_",
+PROGRESS_PREFIXES = ("res_", "res2_", "crit1_", "zloss_", "regen_done_", "predmet_done_",
+                     "nakup_done_", "levelup20_", "balloons_", "zlato_done_",
                      "stastna_kocka_", "dvojita_odmena_", "bojovnik_hranica_", "skip_",
                      "skryta_den_")
 
@@ -582,8 +582,11 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
             if dc_delta:
                 opt_disp["dc"] = max(1, opt["dc"] + dc_delta)
             render_option_panel(opt_disp, accent, is_combat, ds)
+            eliminovana = ss["hp"].get(opt["postava_id"], {}).get("current", 1) <= 0
+            if eliminovana:
+                st.caption(f"☠️ {opt['postava_nazov']} je eliminovaný/á — túto možnosť teraz nemôže hrať.")
             if st.button(f"🎲 {opt['postava_ikona']} {opt['postava_nazov']} — hodiť kockou",
-                         key=f"btn_{ds}_{dec['id']}_{idx}"):
+                         key=f"btn_{ds}_{dec['id']}_{idx}", disabled=eliminovana):
                 ph = st.empty()
                 roll = animated_roll(ph, accent)
                 res = evaluate(opt_disp, roll, opt["postava_id"], is_combat, ds)
@@ -1029,6 +1032,91 @@ def gold_input(label, store_key):
     ss[setflag] = int(ss[wkey])
 
 
+def _regen_heal(cid, amt):
+    """Doplní postave životy (max = jej maximum). Vráti reálny prírastok."""
+    hp = st.session_state["hp"][cid]
+    before = hp["current"]
+    hp["current"] = min(hp["max"], hp["current"] + amt)
+    return hp["current"] - before
+
+
+def render_regen_decision(ds, entry):
+    """Koniec dňa: kde družina strávi noc → regenerácia životov.
+    V spoločnosti (deň s trhom / Taliansko) pribudnú krčma a lekár.
+    Eliminovaní sa neregenerujú (najprv GM oživenie)."""
+    ss = st.session_state
+    donekey = f"regen_done_{ds}"
+    st.markdown("#### 🌙 Nocľah — regenerácia životov")
+
+    if ss.get(donekey):
+        st.success(f"🌙 Nocľah: {ss[donekey]}")
+        if ss.get("gm_mode") and st.button("↩️ Zmeniť nocľah (GM)", key=f"regen_reset_{ds}"):
+            ss.pop(donekey, None)
+            st.rerun()
+        return
+
+    zivi = [c for c in active_ids(entry) if ss["hp"][c]["current"] > 0]
+    if not zivi:
+        st.info("Nikto zo živých — regenerácia sa preskočí.")
+        return
+
+    spolocnost = (ds in MARKET_DAYS) or (entry["group"] == "velka")
+    st.caption("Vyberte, kde družina prenocuje. Eliminovaní sa neregenerujú — najprv ich musí GM oživiť.")
+
+    if spolocnost:
+        klan = ss["gold"]["klan"]
+        cena_krcma = 10 * len(zivi)
+        dost_krcma = klan >= cena_krcma
+        if st.button(f"🏘️ Krčma / hostinec — {cena_krcma} zl z klanu (10/os.) → **+4** každému",
+                     key=f"regen_krcma_{ds}", disabled=not dost_krcma):
+            for c in zivi:
+                _regen_heal(c, 4)
+            ss["gold"]["klan"] = klan - cena_krcma
+            ss[donekey] = f"Krčma (+4 každému, −{cena_krcma} zl z klanu)"
+            st.rerun()
+        if not dost_krcma:
+            st.caption(f"⚠️ V klanovej pokladnici je len {klan} zl (treba {cena_krcma}).")
+        if st.button("🏕️ Tábor medzi ľuďmi (dedina) — zdarma → **+3** každému",
+                     key=f"regen_tabor_ludia_{ds}"):
+            for c in zivi:
+                _regen_heal(c, 3)
+            ss[donekey] = "Tábor medzi ľuďmi (+3 každému)"
+            st.rerun()
+        st.markdown("**⚕️ Lekár** — 15 zl za jednu postavu (**+5**), ostatní idú do tábora (**+3**):")
+        lc = st.selectbox("Koho k lekárovi", zivi,
+                          format_func=lambda c: f"{PARTY_ALL[c]['icon']} {short_name(c)}",
+                          key=f"regen_lekar_sel_{ds}")
+        dost_lekar = klan >= 15
+        if st.button(f"⚕️ K lekárovi: {short_name(lc)} (+5, −15 zl), ostatní tábor (+3)",
+                     key=f"regen_lekar_{ds}", disabled=not dost_lekar):
+            _regen_heal(lc, 5)
+            for c in zivi:
+                if c != lc:
+                    _regen_heal(c, 3)
+            ss["gold"]["klan"] = klan - 15
+            ss[donekey] = f"Lekár: {short_name(lc)} +5, ostatní +3 (−15 zl z klanu)"
+            st.rerun()
+        if not dost_lekar:
+            st.caption(f"⚠️ Na lekára treba 15 zl (v klane je {klan}).")
+        st.caption("— alebo mimo spoločnosti (ak družina radšej táborí):")
+
+    if st.button("🌲 Tábor v divočine / lese — zdarma → **+2** každému", key=f"regen_les_{ds}"):
+        for c in zivi:
+            _regen_heal(c, 2)
+        ss[donekey] = "Divočina / les (+2 každému)"
+        st.rerun()
+    if st.button("⛺ Provizórny nocľah (dážď, hliadky, nepohodlie) — zdarma → **+1** každému",
+                 key=f"regen_provizorny_{ds}"):
+        for c in zivi:
+            _regen_heal(c, 1)
+        ss[donekey] = "Provizórny nocľah (+1 každému)"
+        st.rerun()
+    if st.button("🏜️ Nehostinné prostredie (púšť, pevnosť, tieň) — bez oddychu (**+0**)",
+                 key=f"regen_nehostinne_{ds}"):
+        ss[donekey] = "Nehostinné prostredie (+0)"
+        st.rerun()
+
+
 def render_char_card(cid, entry, accent):
     ss = st.session_state
     p = PARTY_ALL[cid]
@@ -1061,22 +1149,25 @@ def render_char_card(cid, entry, accent):
                     st.rerun()
 
         st.markdown("---")
+        gm = ss.get("gm_mode", False)
         st.markdown(hp_bar_html(hp["current"], hp["max"]), unsafe_allow_html=True)
         if hp["current"] <= 0:
             st.markdown(f"☠️ **ELIMINOVANÁ postava** — 0 / {hp['max']} životov")
-            if st.button("✨ Oživiť (GM) — plné životy", key=f"revive_{cid}"):
+            if gm and st.button("✨ Oživiť — plné životy", key=f"revive_{cid}"):
                 hp["current"] = hp["max"]; st.rerun()
         else:
             st.markdown(f"❤️ **Životy: {hp['current']} / {hp['max']}**")
-        h = st.columns(4)
-        if h[0].button("−5", key=f"hp_m5_{cid}"):
-            hp["current"] = max(0, hp["current"] - 5); st.rerun()
-        if h[1].button("−1", key=f"hp_m1_{cid}"):
-            hp["current"] = max(0, hp["current"] - 1); st.rerun()
-        if h[2].button("+1", key=f"hp_p1_{cid}"):
-            hp["current"] = min(hp["max"], hp["current"] + 1); st.rerun()
-        if h[3].button("+5", key=f"hp_p5_{cid}"):
-            hp["current"] = min(hp["max"], hp["current"] + 5); st.rerun()
+        # Ručná úprava životov je len pre GM (⚙️ GM mód)
+        if gm:
+            h = st.columns(4)
+            if h[0].button("−5", key=f"hp_m5_{cid}"):
+                hp["current"] = max(0, hp["current"] - 5); st.rerun()
+            if h[1].button("−1", key=f"hp_m1_{cid}"):
+                hp["current"] = max(0, hp["current"] - 1); st.rerun()
+            if h[2].button("+1", key=f"hp_p1_{cid}"):
+                hp["current"] = min(hp["max"], hp["current"] + 1); st.rerun()
+            if h[3].button("+5", key=f"hp_p5_{cid}"):
+                hp["current"] = min(hp["max"], hp["current"] + 5); st.rerun()
 
         if cid == "vedma":
             if st.button("🔮 Použiť vešteckú guľu (−20 % max životov)", key=f"orb_{cid}"):
@@ -1218,29 +1309,8 @@ def render_sidebar(entry, accent):
                 st.toast(f"+{int(cnt)} bodov pre každú postavu", icon="🎖️")
                 st.rerun()
 
-        with st.expander("🌙 Nová noc (regenerácia životov)"):
-            typ = st.selectbox("Typ prostredia", list(REGEN_RULES.keys()),
-                               format_func=lambda k: f"{REGEN_RULES[k]['label']} — +{REGEN_RULES[k]['zivoty']} ❤️",
-                               key="regen_typ")
-            st.caption("Eliminované postavy (0 životov) sa neregenerujú — treba ich najprv oživiť.")
-            if st.button("Regenerovať životy družiny", key="regen_btn"):
-                rule = REGEN_RULES[typ]
-                gain = rule["zivoty"]
-                lines = []
-                for cid in active_ids(entry):
-                    hp = ss["hp"][cid]
-                    if hp["current"] <= 0:       # eliminovaní sa neregenerujú
-                        continue
-                    before = hp["current"]
-                    hp["current"] = min(hp["max"], hp["current"] + gain)
-                    if hp["current"] != before:
-                        lines.append(f"{PARTY_ALL[cid]['icon']} +{hp['current']-before}")
-                if rule["cena"] > 0:
-                    ss["gold"]["klan"] = max(0, ss["gold"]["klan"] - rule["cena"])
-                msg = f"Regenerácia +{gain} ❤️. " + (", ".join(lines) if lines else "Žiadna zmena.")
-                if rule["cena"] > 0:
-                    msg += f"  (−{rule['cena']} zl z klanu)"
-                st.success(msg)
+        st.caption("🌙 Regenerácia životov je teraz na **konci dňa** ako výber nocľahu "
+                   "(krčma / lekár / tábor / divočina…), nie tu v GM paneli.")
 
         st.markdown("---")
         with st.expander("📅 Kapitoly kampane"):
@@ -1515,7 +1585,7 @@ def render_gm_calendar(entry):
         st.markdown("".join(rows), unsafe_allow_html=True)
 
 
-RESET_PREFIXES = ("res_", "res2_", "crit1_", "zloss_", "predmet_done_", "nakup_done_",
+RESET_PREFIXES = ("res_", "res2_", "crit1_", "zloss_", "regen_", "predmet_done_", "nakup_done_",
                   "buy_", "buyer_", "buyerr_", "pay_", "shopdone_", "give_",
                   "leave_", "levelup20_", "sc_", "balloons_", "zlato_done_", "skryta_den_",
                   "d1_", "d2_", "d3_", "res1_", "res3_")
@@ -1634,6 +1704,9 @@ def main():
     render_milnik(entry)
 
     if all_done:
+        st.markdown("---")
+        render_regen_decision(ds, entry)
+        st.markdown("---")
         zajtra = vybrany + datetime.timedelta(days=1)
         nxt = CAMPAIGN.get(zajtra.isoformat())
         nxt_t = f" — *{entry.get('next_hint') or (nxt['title'] if nxt else '')}*"

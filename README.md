@@ -39,10 +39,14 @@ streamlit run app.py
 - **Míľniky:** Ťažší nepriateľ 1 · Mini-boss 2 · Hlavný boss 5 · Kapitola 3 — body sa rozdeľujú
   v kartách postáv (bez stropu).
 - **Výdrž je atribút; Životy sú samostatné:** počet Životov = hodnota atribútu Výdrž. Farebný
-  progress bar. **0 Životov = eliminácia** (v GM móde tlačidlo **Oživiť**). Vedma: veštecká guľa
-  = −20 % max Životov.
-- **Nová noc (každý deň):** regenerácia Životov v pevných číslach podľa prostredia (bezpečný +3,
-  nebezpečný +1, bez jedla 0, krčma +4 a −10 zl z klanu). Eliminovaní sa neregenerujú.
+  progress bar. **0 Životov = eliminácia** — postava už nemôže hrať (jej možnosti sú zablokované),
+  kým ju GM neoživí. Vedma: veštecká guľa = −20 % max Životov. **Úprava životov (±) aj Oživiť sú
+  len v ⚙️ GM móde.**
+- **Nocľah = regenerácia (koniec dňa):** výber, kde družina prenocuje (ako rozhodnutie/nákup).
+  **V spoločnosti** (deň s trhom / Taliansko): 🏘️ krčma +4 každému (10 zl/os. z klanu) · ⚕️ lekár
+  +5 jednej vybranej za 15 zl (ostatní tábor +3) · 🏕️ tábor medzi ľuďmi +3. **Mimo civilizácie:**
+  🌲 divočina/les +2 · ⛺ provizórny nocľah +1 · 🏜️ nehostinné prostredie +0. Eliminovaní sa
+  neregenerujú (najprv Oživiť).
 - **Zlato:** osobné + klanová pokladnica (Železný Dub vždy, Zlaté Slnko počas Talianska).
 - **Inventár:** štartovacia výbava (pevná) + max 5 predmetov.
 
