@@ -1216,13 +1216,30 @@ def render_regen_decision(ds, entry):
 
     if zone == "dedina":
         klan = ss["gold"]["klan"]
-        cena_krcma = 10 * len(zivi)
-        dost_krcma = klan >= cena_krcma
-        if st.button(f"🏘️ Krčma / hostinec — {cena_krcma} zl z klanu (10/os.) → **+4** každému",
-                     key=f"regen_krcma_{ds}", disabled=not dost_krcma):
-            _apply({c: 4 for c in zivi}, f"Krčma (+4 každému, −{cena_krcma} zl z klanu)", cena_krcma)
-        if not dost_krcma:
-            st.caption(f"⚠️ V klanovej pokladnici je len {klan} zl (treba {cena_krcma}).")
+        CENA_OS = 10                                   # každý platí za seba z vlastného
+        moze = [c for c in zivi if ss["gold"].get(c, 0) >= CENA_OS]
+        chudobni = [short_name(c) for c in zivi if ss["gold"].get(c, 0) < CENA_OS]
+        if st.button(f"🏘️ Krčma / hostinec — {CENA_OS} zl za seba (z vlastného) → **+4** kto zaplatí",
+                     key=f"regen_krcma_{ds}", disabled=not moze):
+            lines = []
+            for c in zivi:
+                if ss["gold"].get(c, 0) >= CENA_OS:    # zaplatí sám za seba
+                    ss["gold"][c] -= CENA_OS
+                    _regen_heal(c, 4)
+                b = apply_regen_bonuses(c)
+                if b:
+                    lines.append(f"{PARTY_ALL[c]['icon']}+{b}")
+            popis = f"Krčma (+4 kto zaplatil {CENA_OS} zl z vlastného"
+            if chudobni:
+                popis += f"; bez peňazí táborili: {', '.join(chudobni)}"
+            popis += ")"
+            if lines:
+                popis += "  ·  🍖 zásoby: " + ", ".join(lines)
+            ss[donekey] = popis
+            st.rerun()
+        if chudobni:
+            st.caption(f"⚠️ Nemajú {CENA_OS} zl a do krčmy nejdú: {', '.join(chudobni)} "
+                       "(prespia v tábore — zvoľ nižšie tábor pre nich, alebo im GM dá zlato).")
         if st.button("🏕️ Tábor medzi ľuďmi (dedina) — zdarma → **+3** každému",
                      key=f"regen_tabor_ludia_{ds}"):
             _apply({c: 3 for c in zivi}, "Tábor medzi ľuďmi (+3 každému)")
