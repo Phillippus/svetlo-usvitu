@@ -177,6 +177,27 @@ def _setup_equipment(cid):
     recompute_stats(cid)
 
 
+def _starting_mods(cid):
+    """Súčet atribútových modov štartovej výbavy postavy (na odvodenie nahej bázy)."""
+    out = {k: 0 for k in STAT_KEYS}
+    for raw in STARTING_EQUIPMENT.get(cid, []):
+        for m in normalize_item(raw).get("mod", []):
+            if m["atribut"] in out:
+                out[m["atribut"]] += m["hodnota"]
+    return out
+
+
+def _rebase_default(cid):
+    """Migrácia: nahá báza = pôvodné STATS − štartové mody (bez ohľadu na to, čo bolo
+    uložené). Zosúladí staré aj krátkodobú „navrch" verziu na správne atribúty.
+    Nasadená výbava (vrátane nájdenej) ostáva; efektívne atribúty sa prepočítajú."""
+    ss = st.session_state
+    sm = _starting_mods(cid)
+    default = stats_dict(cid)
+    ss["base_stats"][cid] = {k: default.get(k, 0) - sm.get(k, 0) for k in STAT_KEYS}
+    recompute_stats(cid)
+
+
 def init_state():
     ss = st.session_state
     if "stats" not in ss:
@@ -250,8 +271,9 @@ def unequip_slot(cid, slot):
 # =========================================================================
 #  UKLADANIE / NAČÍTANIE POSTUPU (JSON súbor — offline, bez DB)
 # =========================================================================
-SAVE_VERSION = 2
+SAVE_VERSION = 3
 # migrácia v2: zvýšené počty použití skrytej cesty (Vedma temnozrak 1→3, Druid zvierací prieskum 1→2)
+# migrácia v3: zosúladenie nahej bázy atribútov (krátkodobá „navrch" verzia späť na pôvodné STATS)
 _ABILITY_USE_BUMP = {"temnozrak": 2, "zvieraci_prieskum": 1}
 
 SAVE_CORE = ["stats", "base_stats", "equipped", "hp", "gold", "inventory", "milestone_points",
@@ -305,6 +327,10 @@ def load_state(raw):
                 bump = _ABILITY_USE_BUMP.get(a["id"])
                 if bump and pid in ab and a["id"] in ab[pid]:
                     ab[pid][a["id"]] = min(a["max_pouziti"], ab[pid][a["id"]] + bump)
+    # migrácia v3: zosúlaď nahú bázu atribútov na pôvodné STATS (vráti „navrch" verziu)
+    if obj.get("version", 1) < 3:
+        for cid in STATS:
+            _rebase_default(cid)
     # nahraď progress kľúče uloženými
     for k in [k for k in ss if isinstance(k, str) and k.startswith(PROGRESS_PREFIXES)]:
         ss.pop(k, None)
