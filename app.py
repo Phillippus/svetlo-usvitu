@@ -148,17 +148,14 @@ def recompute_stats(cid):
 
 
 def _setup_equipment(cid):
-    """Nasadí štartovaciu výbavu do slotov a odvodí nahú bázu tak, aby efektívne
-    atribúty ostali rovnaké ako v STATS (štartová výbava = vždy zapnutá)."""
+    """Nasadí štartovaciu výbavu do slotov. Báza = aktuálne STATS a výbava sa
+    pripočítava NAVRCH (štartová výbava = vždy zapnutá)."""
     ss = st.session_state
     eq = _new_equipped()
-    start_mods = {k: 0 for k in STAT_KEYS}
     for raw in STARTING_EQUIPMENT.get(cid, []):
         it = normalize_item(raw)
         for m in it.get("mod", []):           # štartová výbava = vždy zapnutá
             m["kedy"] = "vzdy"
-            if m["atribut"] in start_mods:
-                start_mods[m["atribut"]] += m["hodnota"]
         sl = item_slot(it)
         if sl == "zbran":
             if eq["hlavna_ruka"] is None:
@@ -173,7 +170,7 @@ def _setup_equipment(cid):
             eq["doplnky"].append(it)
     ss["equipped"][cid] = eq
     cur = ss["stats"].get(cid) or stats_dict(cid)
-    ss["base_stats"][cid] = {k: cur.get(k, 0) - start_mods.get(k, 0) for k in STAT_KEYS}
+    ss["base_stats"][cid] = {k: cur.get(k, 0) for k in STAT_KEYS}    # výbava sa ráta navrch
     recompute_stats(cid)
 
 
