@@ -4163,15 +4163,52 @@ def _rebase_dc(o, tier):
     return base + need
 
 
-def _norm_option(o, tier=None, rebase=False):
+# ── Per-kapitolové škálovanie DC (od 2026-07) ─────────────────────────────
+# Súčasné DC v kapitole (SRC = nameraný min–max) sa lineárne premapujú na cieľový
+# rozsah (DST), aby najťažšie rozhodnutie sadlo na cieľové max. Rastie s bodmi +
+# bossami: I 28 · II 32 · III 38 (boss) · IV 40 · V 44 (boss) · VI 48, Morgrath 52.
+# Prológ = auto-úspech. Detské = treba hodiť max 5, väčšinou auto.
+CHAPTER_DC_SRC = {0: (6, 9), 1: (21, 32), 2: (22, 35), 3: (19, 40),
+                  4: (23, 34), 5: (22, 38), 6: (22, 41)}
+CHAPTER_DC_DST = {0: (3, 6), 1: (16, 28), 2: (18, 32), 3: (20, 38),
+                  4: (22, 40), 5: (24, 44), 6: (26, 48)}
+MORGRATH_FINALE_DS = "2026-08-30"    # Morgrathove finálne rozhodnutia → max DC 52
+
+
+def _chapter_scale(dc, src, dst):
+    """Lineárne premapuje DC zo zdrojového rozsahu na cieľový (per kapitola)."""
+    lo, hi = src
+    tlo, thi = dst
+    if hi <= lo:
+        return thi
+    frac = (dc - lo) / (hi - lo)
+    return max(3, round(tlo + frac * (thi - tlo)))
+
+
+def _detske_dc(o):
+    """Detské: treba hodiť max 5, väčšinou auto-úspech (need ≤ 0)."""
+    base = stats_dict(o["postava"]).get(o["atribut"], 0) + o.get("bonus", 0)
+    need = min(5, o["dc"] - 11)          # detské dc 10–12 → need -1..1, väčšinou ≤ 0
+    return max(1, base + need)
+
+
+def _norm_option(o, tier=None, rebase=False, scale=None, detske=False, auto=False):
     ak = o["atribut"]
     p = PARTY_ALL.get(o["postava"], {"meno": o["postava"], "icon": "❔"})
-    if rebase and tier in EXTRA_TARGET:
-        dc = _rebase_dc(o, tier)
-    elif tier:
-        dc = _adjust_dc(o, tier)
+    if detske:
+        dc = _detske_dc(o)
+    elif auto:                            # prológ — auto-úspech (need ≤ 0)
+        base = stats_dict(o["postava"]).get(ak, 0) + o.get("bonus", 0)
+        dc = max(3, base - 3)
     else:
-        dc = o["dc"]
+        if rebase and tier in EXTRA_TARGET:
+            dc = _rebase_dc(o, tier)
+        elif tier:
+            dc = _adjust_dc(o, tier)
+        else:
+            dc = o["dc"]
+        if scale:
+            dc = _chapter_scale(dc, scale[0], scale[1])
     return {
         "label": o["label"],
         "postava_id": o["postava"],
@@ -4255,7 +4292,7 @@ def detske_for_day(ds):
         "id": "detske",
         "typ": "detske",
         "prompt": tpl["prompt"],
-        "options": [_norm_option(o) for o in tpl["options"]],
+        "options": [_norm_option(o, detske=True) for o in tpl["options"]],
     }
 
 
@@ -6289,11 +6326,19 @@ def build_decisions(ds, entry):
     """
     out = []
     tier = day_tier(entry)
+    # per-kapitolové škálovanie DC (prológ = auto; Morgrath finále → 52)
+    chapter = entry.get("chapter", 1)
+    auto = (chapter == 0)
+    src = CHAPTER_DC_SRC.get(chapter)
+    dst = CHAPTER_DC_DST.get(chapter)
+    if ds == MORGRATH_FINALE_DS and dst:
+        dst = (dst[0], 53)               # kompenzuje zaokrúhlenie → najťažšie sadne na 52
+    scale = (src, dst) if (src and dst and not auto) else None
     for i in (1, 2, 3):
         d = entry.get(f"decision{i}")
         if not d:
             continue
-        opts_norm = [_norm_option(o, tier) for o in d["options"]]
+        opts_norm = [_norm_option(o, tier, scale=scale, auto=auto) for o in d["options"]]
         out.append({
             "id": f"d{i}",
             "typ": d.get("type", "fyzicke"),
@@ -6305,7 +6350,7 @@ def build_decisions(ds, entry):
     xi = 4
     for d in (EXTRA_DECISIONS.get(ds, []) + EXTRA_DECISIONS_VI.get(ds, [])
               + EXTRA_DECISIONS_5.get(ds, []) + EXTRA_DECISIONS_TALIANSKO.get(ds, [])):
-        opts_norm = [_norm_option(o, tier, rebase=True) for o in d["options"]]
+        opts_norm = [_norm_option(o, tier, rebase=True, scale=scale, auto=auto) for o in d["options"]]
         out.append({
             "id": f"d{xi}",
             "typ": d.get("type", "fyzicke"),
