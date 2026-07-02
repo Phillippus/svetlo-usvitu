@@ -793,8 +793,13 @@ def render_item_box(item, gm=False, raw=None):
     ms = mods_summary(item)
     if ms:
         extra += f"<br>🎒 <b>Efekt:</b> {ms}"
+    pouzitie = item.get("pouzitie")
+    if pouzitie:
+        pocet = item.get("pocet_pouziti") or 1
+        extra += (f"<br>✨ <b>Použiť:</b> {pouzitie.get('popis','')} "
+                  f"<span style='color:#9aa'>(použití: {pocet})</span>")
     zahada = item.get("zahada")
-    if not zahada and not item.get("mod") and not item.get("jednorazovy"):
+    if not zahada and not item.get("mod") and not pouzitie and not item.get("jednorazovy"):
         # spomienkové/príbehové predmety bez mechaniky → náznak budúceho využitia
         zahada = "Čas ukáže jeho význam…"
     if zahada:
@@ -1117,6 +1122,36 @@ def render_regen_decision(ds, entry):
         st.rerun()
 
 
+def use_consumable(cid, item):
+    """Aplikuje efekt spotrebného predmetu na postavu. Vráti (hláška, minulo_sa_bool)."""
+    ss = st.session_state
+    p = item.get("pouzitie") or {}
+    typ = p.get("typ")
+    val = p.get("hodnota", 0)
+    hp = ss["hp"][cid]
+    if typ == "heal":
+        pred = hp["current"]
+        hp["current"] = min(hp["max"], hp["current"] + val)
+        msg = f"❤️ +{hp['current'] - pred} život pre {short_name(cid)}."
+    elif typ == "heal_pct":
+        amt = max(1, math.ceil(hp["max"] * val))
+        pred = hp["current"]
+        hp["current"] = min(hp["max"], hp["current"] + amt)
+        msg = f"❤️ +{hp['current'] - pred} život pre {short_name(cid)}."
+    elif typ == "hod_bonus_zajtra":
+        sel = ss.get("sel_date")
+        base = sel if hasattr(sel, "isoformat") else datetime.date.today()
+        tom = (base + datetime.timedelta(days=1)).isoformat()
+        ss["temp_bonusy"].setdefault(tom, []).append(
+            {"postava": cid, "atribut": "all", "hodnota": val, "zdroj": item["nazov"]})
+        msg = f"🍪 {short_name(cid)}: +{val} ku všetkým hodom zajtra."
+    else:
+        msg = "Predmet použitý."
+    left = (item.get("pocet_pouziti") or 1) - 1
+    item["pocet_pouziti"] = left
+    return msg, left <= 0
+
+
 def render_char_card(cid, entry, accent):
     ss = st.session_state
     p = PARTY_ALL[cid]
@@ -1192,11 +1227,23 @@ def render_char_card(cid, entry, accent):
         for i, item in enumerate(list(inv)):
             name = item["nazov"] if isinstance(item, dict) else str(item)
             ms = mods_summary(item) if isinstance(item, dict) else ""
+            pouzitie = item.get("pouzitie") if isinstance(item, dict) else None
+            pocet = item.get("pocet_pouziti") if isinstance(item, dict) else None
             ic = st.columns([5, 1])
             eff = f"  \n<span style='font-size:0.74rem;color:#9aa'>{ms}</span>" if ms else ""
+            if pouzitie:
+                eff += (f"  \n<span style='font-size:0.74rem;color:#7fb069'>✨ {pouzitie.get('popis','')}"
+                        f" · použití: {pocet}</span>")
             ic[0].markdown(f"- {name}{eff}", unsafe_allow_html=True)
             if ic[1].button("✖", key=f"rm_{cid}_{i}", help="Vyhodiť predmet"):
                 inv.pop(i); st.rerun()
+            if pouzitie and (pocet or 0) > 0:
+                if st.button(f"✅ Použiť — {pouzitie.get('popis','')}", key=f"use_{cid}_{i}"):
+                    msg, minulo = use_consumable(cid, item)
+                    if minulo:
+                        inv.pop(i)
+                    st.toast(msg, icon="✨")
+                    st.rerun()
 
         # Presun predmetu k inej (vhodnej) postave — uvoľní miesto
         if inv:

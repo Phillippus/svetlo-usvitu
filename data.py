@@ -5710,11 +5710,38 @@ def parse_mods(text):
     return mods
 
 
+# Jednorazové/spotrebné predmety s aktívnym efektom (tlačidlo „Použiť").
+# Kľúč = podreťazec názvu (malými písmenami). „typ": heal (+N životov),
+# heal_pct (+% max životov), hod_bonus_zajtra (+N ku všetkým hodom nasledujúci deň).
+CONSUMABLE_EFFECTS = {
+    "medovník":         {"pouzitie": {"typ": "hod_bonus_zajtra", "hodnota": 1,
+                                       "popis": "+1 ku všetkým hodom zajtra"}, "pocet_pouziti": 1},
+    "zásoby jedla":     {"pouzitie": {"typ": "heal", "hodnota": 1,
+                                       "popis": "+1 život (jedlo počas oddychu)"}, "pocet_pouziti": 3},
+    "lektvar liečenia": {"pouzitie": {"typ": "heal_pct", "hodnota": 0.5,
+                                       "popis": "+50 % max životov"}, "pocet_pouziti": 1},
+    "liečivé byliny":   {"pouzitie": {"typ": "heal_pct", "hodnota": 0.2,
+                                       "popis": "+20 % max životov"}, "pocet_pouziti": 1},
+    "liečivý čaj":      {"pouzitie": {"typ": "heal_pct", "hodnota": 0.2,
+                                       "popis": "+20 % max životov"}, "pocet_pouziti": 1},
+}
+
+
+def _consumable_for(nazov):
+    """Vráti (pouzitie, pocet_pouziti) pre spotrebný predmet podľa názvu, alebo (None, None)."""
+    low = (nazov or "").lower()
+    for kw, eff in CONSUMABLE_EFFECTS.items():
+        if kw in low:
+            return eff["pouzitie"], eff["pocet_pouziti"]
+    return None, None
+
+
 def normalize_item(raw):
     """Zjednotí nájdený/kúpený/legendárny predmet na objekt s efektmi (mod).
 
     Kedy bonus platí: zbraň (názov/text) → kladné bonusy „boj", postihy „stále";
     ostatné predmety → „stále". Dá sa prebiť poľom „kedy" v dátach.
+    Spotrebné predmety (medovník, jedlo, lektvary…) dostanú `pouzitie` + `pocet_pouziti`.
     """
     if raw is None:
         return None
@@ -5734,8 +5761,17 @@ def normalize_item(raw):
             else:
                 m["kedy"] = "vzdy"
             mods.append(m)
+    nazov = raw.get("nazov", "?")
+    pouzitie = raw.get("pouzitie")
+    pocet = raw.get("pocet_pouziti")
+    if pouzitie is None:                       # doplň efekt spotrebného predmetu podľa názvu
+        auto_p, auto_n = _consumable_for(nazov)
+        if auto_p is not None:
+            pouzitie = auto_p
+            if pocet in (None, 0):
+                pocet = auto_n
     return {
-        "nazov": raw.get("nazov", "?"),
+        "nazov": nazov,
         "ikona": raw.get("ikona", ""),
         "vyhody": vyh, "nevyhody": nev,
         "pre_koho": raw.get("pre_koho", "vsetci"),
@@ -5743,6 +5779,8 @@ def normalize_item(raw):
         "zahada": raw.get("zahada"),
         "jednorazovy": raw.get("jednorazovy", False),
         "cena": raw.get("cena", 0),
+        "pouzitie": pouzitie,
+        "pocet_pouziti": pocet,
     }
 
 
