@@ -154,10 +154,10 @@ _ABILITY_USE_BUMP = {"temnozrak": 2, "zvieraci_prieskum": 1}
 
 SAVE_CORE = ["stats", "hp", "gold", "inventory", "milestone_points",
              "abilities", "active_effects", "temp_bonusy", "pending_ability"]
-PROGRESS_PREFIXES = ("res_", "res2_", "crit1_", "zloss_", "regen_done_", "regen_zone_",
-                     "predmet_done_", "nakup_done_", "levelup20_", "balloons_", "zlato_done_",
-                     "orb_used_", "stastna_kocka_", "dvojita_odmena_", "bojovnik_hranica_",
-                     "skip_", "skryta_den_")
+PROGRESS_PREFIXES = ("res_", "res2_", "crit1_", "zloss_", "tcrit_", "tloss_", "regen_done_",
+                     "regen_zone_", "predmet_done_", "nakup_done_", "levelup20_", "balloons_",
+                     "zlato_done_", "orb_used_", "stastna_kocka_", "dvojita_odmena_",
+                     "bojovnik_hranica_", "skip_", "skryta_den_")
 
 
 def serialize_state():
@@ -530,11 +530,37 @@ def render_team_decision(n, ds, dec, accent):
         st.success(dec["result_success"])
     elif r["outcome"] == "near":
         st.warning(dec["result_near"])
-        st.caption("🟠 Tesný neúspech — GM môže dať družine ešte jeden spoločný pokus.")
+        st.caption("🟠 Tesný neúspech — GM môže dať družine ešte jeden spoločný pokus (bez postihu).")
     else:
         st.error(dec["result_fail"])
+
+    # 💥 kritický úspech (hod 20) → +1 k danému atribútu KAŽDEJ zúčastnenej postave
+    if r["roll"] == 20:
+        ckey = f"tcrit_{ds}_{dec['id']}"
+        if not ss.get(ckey):
+            for c in dec["contribs"]:
+                ss["stats"][c["postava_id"]][c["atribut_key"]] = \
+                    ss["stats"][c["postava_id"]].get(c["atribut_key"], 0) + 1
+            ss[ckey] = True
+        zisk = ", ".join(f"{c['postava_ikona']} +1 {atr_name(c['atribut_key'])}" for c in dec["contribs"])
+        st.success(f"💥 **Dokonalá súhra!** Každá postava rastie: {zisk}")
+
+    # ❌ neúspech → boss ich spoločný nápor odrazí a kontruje: každá postava −1 život
+    if r["outcome"] == "fail":
+        lkey = f"tloss_{ds}_{dec['id']}"
+        if not ss.get(lkey):
+            for c in dec["contribs"]:
+                hp = ss["hp"][c["postava_id"]]
+                hp["current"] = max(0, hp["current"] - 1)
+            ss[lkey] = True
+        elim = [short_name(c["postava_id"]) for c in dec["contribs"]
+                if ss["hp"][c["postava_id"]]["current"] <= 0]
+        chvost = f" — eliminovaní: {', '.join(elim)} ☠️" if elim else ""
+        st.markdown(f"💔 **Odrazený nápor:** každá zúčastnená postava **−1 život**{chvost}.")
+
     if st.button(f"↩️ Znova tímovú scénu {n}", key=f"treset_{ds}_{dec['id']}"):
-        ss.pop(reskey, None)
+        for k in (reskey, f"tcrit_{ds}_{dec['id']}", f"tloss_{ds}_{dec['id']}"):
+            ss.pop(k, None)
         st.rerun()
     return True
 
