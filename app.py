@@ -26,7 +26,7 @@ from data import (
     WORLD_INTRO, GROUP_SCHEDULE,
     build_decisions, shop_for_day, gm_color_for_day, day_type_label,
     day_tier, TARGET_BEZNE, KIND_LABEL, target_bezne,
-    normalize_item, item_allowed_for, MARKET_DAYS,
+    normalize_item, item_allowed_for, MARKET_DAYS, item_slot,
 )
 
 try:
@@ -122,10 +122,70 @@ def inject_css(accent):
 # =========================================================================
 #  STAV HRY
 # =========================================================================
+EQUIP_SLOTS = ("hlavna_ruka", "druha_ruka", "zbroj")
+
+
+def _new_equipped():
+    return {"hlavna_ruka": None, "druha_ruka": None, "zbroj": None, "doplnky": []}
+
+
+def equipped_items(cid):
+    """Všetky nasadené predmety postavy (ruky + zbroj + doplnky)."""
+    e = st.session_state["equipped"].get(cid) or _new_equipped()
+    hands = [e.get(s) for s in EQUIP_SLOTS if e.get(s)]
+    return hands + list(e.get("doplnky", []))
+
+
+def recompute_stats(cid):
+    """Efektívne atribúty = nahá báza + „vždy" mody nasadenej výbavy."""
+    ss = st.session_state
+    eff = dict(ss["base_stats"][cid])
+    for it in equipped_items(cid):
+        for m in it.get("mod", []):
+            if m.get("kedy") == "vzdy" and m.get("atribut") in eff:
+                eff[m["atribut"]] += m["hodnota"]
+    ss["stats"][cid] = eff
+
+
+def _setup_equipment(cid):
+    """Nasadí štartovaciu výbavu do slotov a odvodí nahú bázu tak, aby efektívne
+    atribúty ostali rovnaké ako v STATS (štartová výbava = vždy zapnutá)."""
+    ss = st.session_state
+    eq = _new_equipped()
+    start_mods = {k: 0 for k in STAT_KEYS}
+    for raw in STARTING_EQUIPMENT.get(cid, []):
+        it = normalize_item(raw)
+        for m in it.get("mod", []):           # štartová výbava = vždy zapnutá
+            m["kedy"] = "vzdy"
+            if m["atribut"] in start_mods:
+                start_mods[m["atribut"]] += m["hodnota"]
+        sl = item_slot(it)
+        if sl == "zbran":
+            if eq["hlavna_ruka"] is None:
+                eq["hlavna_ruka"] = it
+            elif eq["druha_ruka"] is None:
+                eq["druha_ruka"] = it
+            else:
+                eq["doplnky"].append(it)
+        elif sl == "zbroj" and eq["zbroj"] is None:
+            eq["zbroj"] = it
+        else:
+            eq["doplnky"].append(it)
+    ss["equipped"][cid] = eq
+    cur = ss["stats"].get(cid) or stats_dict(cid)
+    ss["base_stats"][cid] = {k: cur.get(k, 0) - start_mods.get(k, 0) for k in STAT_KEYS}
+    recompute_stats(cid)
+
+
 def init_state():
     ss = st.session_state
     if "stats" not in ss:
         ss["stats"] = {cid: stats_dict(cid) for cid in STATS}
+    if "equipped" not in ss:
+        ss["equipped"] = {}
+        ss["base_stats"] = {}
+        for cid in STATS:
+            _setup_equipment(cid)
     if "hp" not in ss:
         ss["hp"] = {cid: {"current": start_vydrz(cid), "max": start_vydrz(cid)} for cid in STATS}
     if "gold" not in ss:
@@ -145,6 +205,48 @@ def init_state():
         ss["temp_bonusy"] = {}         # {date_str: [{postava, atribut, hodnota, zdroj}]}
 
 
+def acquire_item(cid, item):
+    """Nový predmet: doplnok/spotrebný sa rovno nasadí (bez limitu); zbraň/zbroj ide do batohu."""
+    ss = st.session_state
+    if item_slot(item) == "doplnok":
+        ss["equipped"][cid]["doplnky"].append(item)
+        recompute_stats(cid)
+    else:
+        ss["inventory"][cid].append(item)
+
+
+def equip_from_batoh(cid, idx):
+    """Nasadí zbraň/zbroj z batohu do slotu; pri plnom slote vymení (starý → batoh)."""
+    ss = st.session_state
+    batoh = ss["inventory"][cid]
+    if idx >= len(batoh):
+        return
+    item = batoh.pop(idx)
+    e = ss["equipped"][cid]
+    displaced = None
+    if item_slot(item) == "zbroj":
+        displaced = e["zbroj"]; e["zbroj"] = item
+    else:  # zbraň → do ruky
+        if e["hlavna_ruka"] is None:
+            e["hlavna_ruka"] = item
+        elif e["druha_ruka"] is None:
+            e["druha_ruka"] = item
+        else:
+            displaced = e["hlavna_ruka"]; e["hlavna_ruka"] = item
+    if displaced:
+        batoh.append(displaced)
+    recompute_stats(cid)
+
+
+def unequip_slot(cid, slot):
+    """Zloží predmet zo slotu ruky/zbroje späť do batohu."""
+    ss = st.session_state
+    e = ss["equipped"][cid]
+    if e.get(slot):
+        ss["inventory"][cid].append(e[slot]); e[slot] = None
+        recompute_stats(cid)
+
+
 # =========================================================================
 #  UKLADANIE / NAČÍTANIE POSTUPU (JSON súbor — offline, bez DB)
 # =========================================================================
@@ -152,10 +254,10 @@ SAVE_VERSION = 2
 # migrácia v2: zvýšené počty použití skrytej cesty (Vedma temnozrak 1→3, Druid zvierací prieskum 1→2)
 _ABILITY_USE_BUMP = {"temnozrak": 2, "zvieraci_prieskum": 1}
 
-SAVE_CORE = ["stats", "hp", "gold", "inventory", "milestone_points",
+SAVE_CORE = ["stats", "base_stats", "equipped", "hp", "gold", "inventory", "milestone_points",
              "abilities", "active_effects", "temp_bonusy", "pending_ability"]
 PROGRESS_PREFIXES = ("res_", "res2_", "crit1_", "zloss_", "regen_done_", "predmet_done_",
-                     "nakup_done_", "levelup20_", "balloons_", "zlato_done_",
+                     "nakup_done_", "levelup20_", "balloons_", "zlato_done_", "orb_used_",
                      "stastna_kocka_", "dvojita_odmena_", "bojovnik_hranica_", "skip_",
                      "skryta_den_")
 
@@ -184,6 +286,17 @@ def load_state(raw):
     for cid, items in ss.get("inventory", {}).items():
         ss["inventory"][cid] = [it if isinstance(it, dict) else normalize_item({"nazov": str(it)})
                                 for it in items]
+    # migrácia výbavy: staré uloženia nemajú sloty (base_stats/equipped) → prebuduj ich
+    if core.get("equipped") is None or core.get("base_stats") is None:
+        old_inv = {cid: list(ss["inventory"].get(cid, [])) for cid in STATS}
+        ss["equipped"] = {}
+        ss["base_stats"] = {}
+        for cid in STATS:
+            _setup_equipment(cid)            # base = (reštaurované) stats − štartová výbava
+        for cid in STATS:                    # staré nájdené predmety znovu zaradí (doplnky/batoh)
+            ss["inventory"][cid] = []
+            for it in old_inv.get(cid, []):
+                acquire_item(cid, it if isinstance(it, dict) else normalize_item({"nazov": str(it)}))
     # migrácia v2: dorovnaj zvýšené počty použití skrytej cesty aj rozohraným hrám
     if obj.get("version", 1) < 2:
         ab = ss.get("abilities") or {}
@@ -269,18 +382,19 @@ def _atr_key(opt):
 
 
 def item_attr_bonus(cid, akey, is_combat):
-    """(suma, detaily) bonusov z predmetov v inventári pre atribút a kontext (boj/stále)."""
+    """(suma, detaily) BOJOVÝCH bonusov z nasadenej výbavy (vždy-mody sú už v atribútoch).
+    Bojové bonusy sa rátajú len pri fyzických rozhodnutiach."""
     total = 0
     detail = []
-    for it in st.session_state["inventory"].get(cid, []):
+    if not is_combat:
+        return total, detail
+    for it in equipped_items(cid):
         if not isinstance(it, dict):
             continue
         for m in it.get("mod", []):
-            if m.get("atribut") != akey:
-                continue
-            if m.get("kedy") == "vzdy" or (m.get("kedy") == "boj" and is_combat):
+            if m.get("atribut") == akey and m.get("kedy") == "boj":
                 total += m["hodnota"]
-                detail.append((it.get("nazov", "?"), m["hodnota"], m.get("kedy")))
+                detail.append((it.get("nazov", "?"), m["hodnota"], "boj"))
     return total, detail
 
 
@@ -651,7 +765,9 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
         else:
             if st.button(f"⭐ Potvrdiť levelup: +1 {an} pre {opt['postava_nazov']}",
                          key=f"lvl_{ds}_{dec['id']}"):
-                ss["stats"][opt["postava_id"]][res["atribut"]] += 1
+                pid = opt["postava_id"]
+                ss["base_stats"][pid][res["atribut"]] += 1
+                recompute_stats(pid)
                 ss[lvlkey] = True
                 st.toast(f"{opt['postava_nazov']}: +1 {an}!", icon="⭐")
                 st.rerun()
@@ -829,21 +945,18 @@ def render_predmet_decision(n, ds, dec, entry, gm):
         st.caption(f"🔒 Tento predmet môže niesť len: **{kto}**")
 
     if donekey not in ss:
-        st.caption("Komu predmet pridelíte?")
+        sl = item_slot(item)
+        kam = ("do batohu (nasadí sa v karte)" if sl in ("zbran", "zbroj")
+               else "rovno medzi doplnky")
+        st.caption(f"Komu predmet pridelíte? *(pôjde {kam})*")
         cols = st.columns(3)
-        any_free = False
         for i, cid in enumerate(eligible):
-            full = len(ss["inventory"][cid]) >= INV_LIMIT
-            any_free = any_free or not full
-            lbl = f"{PARTY_ALL[cid]['icon']} {short_name(cid)}" + (" · plný" if full else "")
-            if cols[i % 3].button(lbl, key=f"give_{ds}_{dec['id']}_{cid}", disabled=full):
-                ss["inventory"][cid].append(item)
+            lbl = f"{PARTY_ALL[cid]['icon']} {short_name(cid)}"
+            if cols[i % 3].button(lbl, key=f"give_{ds}_{dec['id']}_{cid}"):
+                acquire_item(cid, item)
                 ss[donekey] = cid
                 st.toast(f"{item['nazov']} → {short_name(cid)}", icon="🎁")
                 st.rerun()
-        if eligible and not any_free:
-            st.warning("Všetci oprávnení majú plný inventár (5/5). Uvoľni miesto v karte postavy "
-                       "(presuň alebo vyhoď predmet) a skús znova.")
         if st.button("🚫 Nechať ležať (nebrať)", key=f"leave_{ds}_{dec['id']}"):
             ss[donekey] = "_none"
             st.rerun()
@@ -873,9 +986,6 @@ def do_purchase(buyer, sel, total, zdroj, clan_key, ds, did):
     ss = st.session_state
     osob = ss["gold"][buyer]
     klan = ss["gold"][clan_key]
-    free = INV_LIMIT - len(ss["inventory"][buyer])
-    if len(sel) > free:
-        return False, f"Inventár {short_name(buyer)} nemá dosť miesta ({free} voľných)."
     if zdroj == "Osobné":
         if osob < total:
             return False, "Málo osobného zlata."
@@ -891,7 +1001,7 @@ def do_purchase(buyer, sel, total, zdroj, clan_key, ds, did):
         ss["gold"][buyer] -= from_osob
         ss["gold"][clan_key] -= (total - from_osob)
     for p in sel:
-        ss["inventory"][buyer].append(normalize_item(p))
+        acquire_item(buyer, normalize_item(p))
     for i in range(50):                       # odznač vybrané checkboxy
         ss.pop(f"buy_{ds}_{did}_{i}", None)
     return True, f"Kúpené ({total} zl) pre {short_name(buyer)}."
@@ -930,7 +1040,6 @@ def render_nakup_decision(n, ds, dec, entry):
     osob = ss["gold"][buyer]
     klan = ss["gold"][clan_key]
     klan_nazov = CLANS["mala"]["nazov"] if clan_key == "klan" else CLANS["velka"]["nazov"]
-    free = INV_LIMIT - len(ss["inventory"][buyer])
 
     zdroj = st.radio("Zaplatiť z", ["Osobné", "Klanové", "Kombinácia"], horizontal=True,
                      key=f"pay_{ds}_{did}")
@@ -943,18 +1052,15 @@ def render_nakup_decision(n, ds, dec, entry):
         from_osob = min(osob, total)
         po_osob, po_klan = osob - from_osob, klan - (total - from_osob)
     dost = po_osob >= 0 and po_klan >= 0
-    miesto_ok = len(sel) <= free
     st.markdown(
-        f"🧾 Vybrané: **{total} zl** ({len(sel)} ks, voľné miesto {free}/{INV_LIMIT})  \n"
+        f"🧾 Vybrané: **{total} zl** ({len(sel)} ks)  \n"
         f"💰 Osobné ({short_name(buyer)}): {osob} → **{po_osob} zl** · "
         f"🏦 {klan_nazov}: {klan} → **{po_klan} zl**")
     if sel and not dost:
         st.warning("Nemáš dosť zlata na tento výber pri zvolenom zdroji.")
-    if sel and not miesto_ok:
-        st.warning(f"Inventár {short_name(buyer)} nemá dosť miesta ({free} voľných).")
 
     cols = st.columns(2)
-    can_buy = bool(sel) and dost and miesto_ok
+    can_buy = bool(sel) and dost
     if cols[0].button("✅ Kúpiť vybrané", key=f"buybtn_{ds}_{did}", disabled=not can_buy):
         ok, msg = do_purchase(buyer, sel, total, zdroj, clan_key, ds, did)
         if ok:
@@ -1179,7 +1285,8 @@ def render_char_card(cid, entry, accent):
             for i, key in enumerate(STAT_KEYS):
                 if bcols[i % 4].button(f"+{STAT_LABELS[STAT_KEYS.index(key)]}",
                                        key=f"mp_{cid}_{key}", help=f"+1 {STAT_NAMES[i]}"):
-                    ss["stats"][cid][key] += 1
+                    ss["base_stats"][cid][key] += 1
+                    recompute_stats(cid)
                     ss["milestone_points"][cid] -= 1
                     st.rerun()
 
@@ -1205,57 +1312,98 @@ def render_char_card(cid, entry, accent):
                 hp["current"] = min(hp["max"], hp["current"] + 5); st.rerun()
 
         if cid == "vedma":
-            if st.button("🔮 Použiť vešteckú guľu (−20 % max životov)", key=f"orb_{cid}"):
+            _sel = ss.get("sel_date")
+            ds_today = _sel.isoformat() if hasattr(_sel, "isoformat") else datetime.date.today().isoformat()
+            orbkey = f"orb_used_{ds_today}"
+            used = ss.get(orbkey, False)
+            if st.button("🔮 Veštecká guľa — prorocká vízia (+3 k hodom dnes, −20 % max životov)",
+                         key=f"orb_{cid}", disabled=used):
                 strata = math.ceil(hp["max"] * 0.20)
                 hp["max"] = max(1, hp["max"] - strata)
                 hp["current"] = min(hp["current"], hp["max"])
-                st.toast(f"Veštecká guľa: −{strata} max životov", icon="🔮")
+                ss["temp_bonusy"].setdefault(ds_today, []).append(
+                    {"postava": "vedma", "atribut": "all", "hodnota": 3, "zdroj": "Veštecká guľa"})
+                ss[orbkey] = True
+                st.toast(f"Veštecká guľa: +3 k hodom dnes, −{strata} max životov", icon="🔮")
                 st.rerun()
+            if used:
+                st.caption("🔮 Veštecká guľa dnes už použitá (+3 k hodom aktívne).")
 
         st.markdown("---")
         gold_input("💰 Osobné zlato", cid)
 
+        # ---------- NASADENÁ VÝBAVA (sloty) ----------
+        e = ss["equipped"][cid]
         st.markdown("---")
-        st.markdown("**🎒 Štartovacia výbava** *(pevná)*")
-        for it in STARTING_EQUIPMENT.get(cid, []):
-            st.markdown(
-                f"- {it['nazov']}  \n  <span style='font-size:0.78rem;color:#9aa'>➕ {it['vyhoda']} · ➖ {it['nevyhoda']}</span>",
-                unsafe_allow_html=True)
+        st.markdown("**⚔️ Nasadená výbava** *(2 ruky · 1 zbroj)*")
+        for slot, lbl in (("hlavna_ruka", "🗡️ Hlavná ruka"), ("druha_ruka", "🤚 Druhá ruka"),
+                          ("zbroj", "🛡️ Zbroj")):
+            it = e.get(slot)
+            c = st.columns([5, 1])
+            if it:
+                ms = mods_summary(it)
+                sub = f"  \n<span style='font-size:0.74rem;color:#9aa'>{ms}</span>" if ms else ""
+                c[0].markdown(f"{lbl}: **{it['nazov']}**{sub}", unsafe_allow_html=True)
+                if c[1].button("⏏", key=f"uneq_{cid}_{slot}", help="Zložiť do batohu"):
+                    unequip_slot(cid, slot); st.rerun()
+            else:
+                c[0].markdown(f"{lbl}: <span style='color:#8a8'>— prázdne —</span>",
+                              unsafe_allow_html=True)
 
-        inv = ss["inventory"][cid]
-        st.markdown(f"**📦 Inventár ({len(inv)}/{INV_LIMIT})** *(nad rámec štartovacej výbavy)*")
-        for i, item in enumerate(list(inv)):
-            name = item["nazov"] if isinstance(item, dict) else str(item)
-            ms = mods_summary(item) if isinstance(item, dict) else ""
-            pouzitie = item.get("pouzitie") if isinstance(item, dict) else None
-            pocet = item.get("pocet_pouziti") if isinstance(item, dict) else None
+        # ---------- DOPLNKY (bez limitu) + spotrebné ----------
+        dopl = e["doplnky"]
+        if dopl:
+            st.markdown("**🎀 Doplnky** *(bez limitu nosenia)*")
+        for i, item in enumerate(list(dopl)):
+            name = item.get("nazov", "?")
+            ms = mods_summary(item)
+            pouzitie = item.get("pouzitie")
+            pocet = item.get("pocet_pouziti")
             ic = st.columns([5, 1])
             eff = f"  \n<span style='font-size:0.74rem;color:#9aa'>{ms}</span>" if ms else ""
             if pouzitie:
                 eff += (f"  \n<span style='font-size:0.74rem;color:#7fb069'>✨ {pouzitie.get('popis','')}"
                         f" · použití: {pocet}</span>")
             ic[0].markdown(f"- {name}{eff}", unsafe_allow_html=True)
-            if ic[1].button("✖", key=f"rm_{cid}_{i}", help="Vyhodiť predmet"):
-                inv.pop(i); st.rerun()
+            if ic[1].button("✖", key=f"rmd_{cid}_{i}", help="Vyhodiť"):
+                dopl.pop(i); recompute_stats(cid); st.rerun()
             if pouzitie and (pocet or 0) > 0:
-                if st.button(f"✅ Použiť — {pouzitie.get('popis','')}", key=f"use_{cid}_{i}"):
+                if st.button(f"✅ Použiť — {pouzitie.get('popis','')}", key=f"used_{cid}_{i}"):
                     msg, minulo = use_consumable(cid, item)
                     if minulo:
-                        inv.pop(i)
-                    st.toast(msg, icon="✨")
-                    st.rerun()
+                        dopl.pop(i)
+                    recompute_stats(cid)
+                    st.toast(msg, icon="✨"); st.rerun()
 
-        # Presun predmetu k inej (vhodnej) postave — uvoľní miesto
+        # ---------- BATOH: nenasadené zbrane/zbroje ----------
+        inv = ss["inventory"][cid]
+        if inv:
+            st.markdown("**🎒 Batoh** *(zbrane/zbroje na nasadenie)*")
+        for i, item in enumerate(list(inv)):
+            if not isinstance(item, dict):
+                continue
+            name = item.get("nazov", "?")
+            ms = mods_summary(item)
+            sl = item_slot(item)
+            kam = "ruka" if sl == "zbran" else ("zbroj" if sl == "zbroj" else "doplnok")
+            ic = st.columns([4, 1, 1])
+            sub = f"  \n<span style='font-size:0.74rem;color:#9aa'>{ms}</span>" if ms else ""
+            ic[0].markdown(f"- {name} <span style='font-size:0.7rem;color:#8a8'>[{kam}]</span>{sub}",
+                           unsafe_allow_html=True)
+            if ic[1].button("⚒", key=f"eq_{cid}_{i}", help="Nasadiť do slotu"):
+                equip_from_batoh(cid, i); st.rerun()
+            if ic[2].button("✖", key=f"rmb_{cid}_{i}", help="Vyhodiť"):
+                inv.pop(i); st.rerun()
+
+        # presun batohovej zbrane/zbroje k inej postave
         if inv:
             mc = st.columns([4, 4, 2])
             j = mc[0].selectbox("Presunúť", list(range(len(inv))),
-                                format_func=lambda k: (inv[k]["nazov"] if isinstance(inv[k], dict)
-                                                       else str(inv[k]))[:16],
+                                format_func=lambda k: (inv[k].get("nazov", "?")
+                                                       if isinstance(inv[k], dict) else str(inv[k]))[:16],
                                 key=f"mvitem_{cid}", label_visibility="collapsed")
             sel_item = inv[j]
-            targets = [c for c in active_ids(entry)
-                       if c != cid and item_allowed_for(sel_item, c)
-                       and len(ss["inventory"][c]) < INV_LIMIT]
+            targets = [c for c in active_ids(entry) if c != cid and item_allowed_for(sel_item, c)]
             if targets:
                 to = mc[1].selectbox("komu", targets,
                                      format_func=lambda c: f"{PARTY_ALL[c]['icon']} {short_name(c)}",
@@ -1267,23 +1415,21 @@ def render_char_card(cid, entry, accent):
             else:
                 mc[1].caption("niet vhodného cieľa")
 
-        if len(inv) < INV_LIMIT:
-            day_raw = entry.get("items_day", [])
-            day_names = [it["nazov"] for it in day_raw]
-            options = ["— vyber —"] + day_names + ["✏️ vlastný…"]
-            sel = st.selectbox("Pridať predmet", options, key=f"addsel_{cid}")
-            custom = ""
-            if sel == "✏️ vlastný…":
-                custom = st.text_input("Názov predmetu", key=f"addtxt_{cid}")
-            if st.button("➕ Pridať do inventára", key=f"addbtn_{cid}"):
-                if sel == "✏️ vlastný…" and custom.strip():
-                    inv.append(normalize_item({"nazov": custom.strip()})); st.rerun()
-                elif sel not in ("— vyber —", "✏️ vlastný…"):
-                    raw = next((it for it in day_raw if it["nazov"] == sel), None)
-                    if raw:
-                        inv.append(normalize_item(raw)); st.rerun()
-        else:
-            st.caption("Inventár je plný (max 5) — vyhoď alebo presuň predmet.")
+        # pridať predmet (deň / vlastný) → smeruje do batohu alebo doplnkov
+        day_raw = entry.get("items_day", [])
+        day_names = [it["nazov"] for it in day_raw]
+        options = ["— vyber —"] + day_names + ["✏️ vlastný…"]
+        sel = st.selectbox("Pridať predmet", options, key=f"addsel_{cid}")
+        custom = ""
+        if sel == "✏️ vlastný…":
+            custom = st.text_input("Názov predmetu", key=f"addtxt_{cid}")
+        if st.button("➕ Pridať", key=f"addbtn_{cid}"):
+            if sel == "✏️ vlastný…" and custom.strip():
+                acquire_item(cid, normalize_item({"nazov": custom.strip()})); st.rerun()
+            elif sel not in ("— vyber —", "✏️ vlastný…"):
+                raw = next((it for it in day_raw if it["nazov"] == sel), None)
+                if raw:
+                    acquire_item(cid, normalize_item(raw)); st.rerun()
 
 
 # =========================================================================
