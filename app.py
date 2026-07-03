@@ -72,30 +72,31 @@ KIND_COLOR = {
 BASE_BG = "#0e1117"
 CHAPTER_BG = {
     0: ("🌱 Prológ — skúšobné dni",
-        "radial-gradient(ellipse at 50% 0%, #1d4a4a33, transparent 55%),"
-        "linear-gradient(180deg, #0b1b1b 0%, #0e1117 70%)"),
+        "radial-gradient(ellipse at 50% 0%, #2e7d7d66, transparent 55%),"
+        "linear-gradient(180deg, #103535 0%, #0e1a1a 70%, #0e1117 100%)"),
     1: ("🌫️ I. Volanie z hmly (hmlistý les)",
-        "radial-gradient(ellipse at 20% 0%, #2c463555, transparent 60%),"
-        "radial-gradient(ellipse at 80% 15%, #22303f44, transparent 55%),"
-        "linear-gradient(180deg, #0d1a12 0%, #101720 50%, #0e1117 100%)"),
+        "radial-gradient(ellipse at 20% 0%, #4a7a5a88, transparent 60%),"
+        "radial-gradient(ellipse at 80% 15%, #3a556f66, transparent 55%),"
+        "linear-gradient(180deg, #14301e 0%, #16222e 50%, #0e1117 100%)"),
     2: ("🏞️ II. Cesta na juh (rieky a údolia)",
-        "radial-gradient(ellipse at 75% 0%, #16324d66, transparent 55%),"
-        "radial-gradient(ellipse at 15% 30%, #1d3a2e33, transparent 50%),"
-        "linear-gradient(180deg, #0d1626 0%, #0e1117 100%)"),
+        "radial-gradient(ellipse at 75% 0%, #2470b388, transparent 55%),"
+        "radial-gradient(ellipse at 15% 30%, #2d6b5255, transparent 50%),"
+        "linear-gradient(180deg, #10284a 0%, #0e1830 55%, #0e1117 100%)"),
     3: ("🏖️ III. Bratstvo dvoch rodov (pláž, Taliansko)",
-        "radial-gradient(ellipse at 50% 0%, #d4a01726, transparent 55%),"
-        "linear-gradient(180deg, #0f2e38 0%, #14444e 30%, #3a2f17 78%, #191510 100%)"),
+        "radial-gradient(ellipse at 50% 0%, #f4c43040, transparent 55%),"
+        "linear-gradient(180deg, #145a70 0%, #1a7a8c 30%, #6b552a 75%, #2a2112 100%)"),
     4: ("🌘 IV. Návrat a tieň (súmrak)",
-        "radial-gradient(ellipse at 50% 0%, #8e557240, transparent 55%),"
-        "linear-gradient(180deg, #171021 0%, #0e1117 100%)"),
+        "radial-gradient(ellipse at 50% 0%, #b06a9070, transparent 55%),"
+        "radial-gradient(ellipse at 20% 60%, #4a2d5c44, transparent 50%),"
+        "linear-gradient(180deg, #2a1c40 0%, #16101f 60%, #0e1117 100%)"),
     5: ("🏜️ V. Plamene východu (púšť)",
-        "radial-gradient(ellipse at 50% 0%, #c1440e40, transparent 50%),"
-        "radial-gradient(ellipse at 85% 25%, #d4a01722, transparent 45%),"
-        "linear-gradient(180deg, #2b1a10 0%, #33200f 40%, #1a120c 100%)"),
+        "radial-gradient(ellipse at 50% 0%, #e8621e66, transparent 50%),"
+        "radial-gradient(ellipse at 85% 25%, #f4c43038, transparent 45%),"
+        "linear-gradient(180deg, #56311a 0%, #6b4218 40%, #2a1a0e 100%)"),
     6: ("🌌 VI. Posledná bitka o Svetlo (temná noc)",
-        "radial-gradient(ellipse at 50% 0%, #6a4c9355, transparent 55%),"
-        "radial-gradient(ellipse at 50% 100%, #f4c43015, transparent 40%),"
-        "linear-gradient(180deg, #120e1e 0%, #0a0812 100%)"),
+        "radial-gradient(ellipse at 50% 0%, #8d68c688, transparent 55%),"
+        "radial-gradient(ellipse at 50% 100%, #f4c43028, transparent 40%),"
+        "linear-gradient(180deg, #221740 0%, #120c22 60%, #0a0812 100%)"),
 }
 
 
