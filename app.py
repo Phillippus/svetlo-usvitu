@@ -68,10 +68,52 @@ KIND_COLOR = {
 # =========================================================================
 #  CSS — tmavý high-fantasy motív, veľké tlačidlá pre mobil
 # =========================================================================
-def inject_css(accent):
+# ── Kapitolové témy pozadia (CSS gradienty — plne offline, bez obrázkov) ──
+BASE_BG = "#0e1117"
+CHAPTER_BG = {
+    0: ("🌱 Prológ — skúšobné dni",
+        "radial-gradient(ellipse at 50% 0%, #1d4a4a33, transparent 55%),"
+        "linear-gradient(180deg, #0b1b1b 0%, #0e1117 70%)"),
+    1: ("🌫️ I. Volanie z hmly (hmlistý les)",
+        "radial-gradient(ellipse at 20% 0%, #2c463555, transparent 60%),"
+        "radial-gradient(ellipse at 80% 15%, #22303f44, transparent 55%),"
+        "linear-gradient(180deg, #0d1a12 0%, #101720 50%, #0e1117 100%)"),
+    2: ("🏞️ II. Cesta na juh (rieky a údolia)",
+        "radial-gradient(ellipse at 75% 0%, #16324d66, transparent 55%),"
+        "radial-gradient(ellipse at 15% 30%, #1d3a2e33, transparent 50%),"
+        "linear-gradient(180deg, #0d1626 0%, #0e1117 100%)"),
+    3: ("🏖️ III. Bratstvo dvoch rodov (pláž, Taliansko)",
+        "radial-gradient(ellipse at 50% 0%, #d4a01726, transparent 55%),"
+        "linear-gradient(180deg, #0f2e38 0%, #14444e 30%, #3a2f17 78%, #191510 100%)"),
+    4: ("🌘 IV. Návrat a tieň (súmrak)",
+        "radial-gradient(ellipse at 50% 0%, #8e557240, transparent 55%),"
+        "linear-gradient(180deg, #171021 0%, #0e1117 100%)"),
+    5: ("🏜️ V. Plamene východu (púšť)",
+        "radial-gradient(ellipse at 50% 0%, #c1440e40, transparent 50%),"
+        "radial-gradient(ellipse at 85% 25%, #d4a01722, transparent 45%),"
+        "linear-gradient(180deg, #2b1a10 0%, #33200f 40%, #1a120c 100%)"),
+    6: ("🌌 VI. Posledná bitka o Svetlo (temná noc)",
+        "radial-gradient(ellipse at 50% 0%, #6a4c9355, transparent 55%),"
+        "radial-gradient(ellipse at 50% 100%, #f4c43015, transparent 40%),"
+        "linear-gradient(180deg, #120e1e 0%, #0a0812 100%)"),
+}
+
+
+def theme_bg(entry0):
+    """Pozadie podľa voľby hore: auto = podľa kapitoly dňa, zakladne = pôvodné, N = kapitola N."""
+    choice = st.session_state.get("theme_sel", "auto")
+    if choice == "zakladne":
+        return None
+    if choice == "auto":
+        ch = entry0.get("chapter") if entry0 else None
+        return CHAPTER_BG.get(ch, (None, None))[1] if ch is not None else None
+    return CHAPTER_BG.get(choice, (None, None))[1]
+
+
+def inject_css(accent, bg=None):
     st.markdown(f"""
     <style>
-      .stApp {{ background: #0e1117; }}
+      .stApp {{ background: {bg or BASE_BG}; background-attachment: fixed; }}
       .su-accent {{ color:{accent}; }}
       div.stButton > button {{
           width: 100%;
@@ -1907,9 +1949,9 @@ def main():
     sel_default = st.session_state.get("sel_date", default)
     entry0 = CAMPAIGN.get(sel_default.isoformat())
     accent = CHAPTER_COLORS.get(entry0["chapter"], "#f4c430") if entry0 else "#f4c430"
-    inject_css(accent)
+    inject_css(accent, theme_bg(entry0))
 
-    top = st.columns([3, 1])
+    top = st.columns([2.4, 1.9, 0.9])
     with top[0]:
         vybrany = st.date_input("📅 Dátum hry", value=sel_default,
                                 min_value=MIN_DATE, max_value=MAX_DATE,
@@ -1918,6 +1960,12 @@ def main():
     entry = CAMPAIGN.get(ds)
 
     with top[1]:
+        _theme_lbl = {"auto": "✨ Automatické (podľa kapitoly)", "zakladne": "⬛ Základné"}
+        _theme_lbl.update({k: v[0] for k, v in CHAPTER_BG.items()})
+        st.selectbox("🎨 Pozadie", ["auto", "zakladne"] + list(CHAPTER_BG.keys()),
+                     format_func=lambda v: _theme_lbl[v], key="theme_sel")
+
+    with top[2]:
         st.write(""); st.write("")
         if st.button("🔄 Reset dňa"):
             reset_day(ds)
