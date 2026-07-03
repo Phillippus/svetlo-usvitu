@@ -9,6 +9,7 @@ import json
 import math
 import time
 import random
+import re
 import datetime
 
 import streamlit as st
@@ -197,10 +198,10 @@ _ABILITY_USE_BUMP = {"temnozrak": 2, "zvieraci_prieskum": 1}
 
 SAVE_CORE = ["stats", "hp", "gold", "inventory", "milestone_points",
              "abilities", "active_effects", "temp_bonusy", "pending_ability"]
-PROGRESS_PREFIXES = ("res_", "res2_", "crit1_", "zloss_", "tcrit_", "tloss_", "regen_done_",
-                     "regen_zone_", "predmet_done_", "nakup_done_", "levelup20_", "balloons_",
-                     "zlato_done_", "orb_used_", "stastna_kocka_", "dvojita_odmena_",
-                     "bojovnik_hranica_", "skip_", "skryta_den_")
+PROGRESS_PREFIXES = ("res_", "res2_", "crit1_", "zloss_", "tcrit_", "tloss_", "armorsave_used_",
+                     "armorsaved_", "regen_done_", "regen_zone_", "predmet_done_", "nakup_done_",
+                     "levelup20_", "balloons_", "zlato_done_", "orb_used_", "stastna_kocka_",
+                     "dvojita_odmena_", "bojovnik_hranica_", "skip_", "skryta_den_")
 
 
 def serialize_state():
@@ -419,6 +420,24 @@ def apply_life_loss(ds, dec, opt, res, attempt):
         hp["current"] = 0 if strata == "smrt" else max(0, hp["current"] - strata)
         ss[lkey] = True
     return strata, hp["current"] <= 0
+
+
+def _armor_save_threshold(cid):
+    """Najnižší prah zbroje typu „pri hode X+ zachráni život" z výbavy postavy
+    (inventár + štartová výbava). Vráti (prah, názov) alebo None."""
+    ss = st.session_state
+    best = None
+    sources = [it for it in ss["inventory"].get(cid, []) if isinstance(it, dict)]
+    sources += STARTING_EQUIPMENT.get(cid, [])
+    for it in sources:
+        txt = ((it.get("nazov", "") + " " + (it.get("vyhody") or it.get("vyhoda") or "")).lower())
+        if "zachráni" not in txt or "život" not in txt:
+            continue
+        m = re.search(r"(\d+)\s*\+?\s*zachráni", txt)
+        thr = int(m.group(1)) if m else 10
+        if best is None or thr < best[0]:
+            best = (thr, it.get("nazov", "Zbroj"))
+    return best
 
 
 def render_life_loss(strata, opt, eliminated):
@@ -813,8 +832,26 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
 
     # Strata životov za prvý hod (len neúspech 4+; tesný neúspech 1–3 nič nestráca)
     if real and res["outcome"] == "fail" and not positive:
+        cid = opt["postava_id"]
+        savedkey = f"armorsaved_{ds}_{dec['id']}"
         strata, elim = apply_life_loss(ds, dec, opt, res, attempt=1)
-        render_life_loss(strata, opt, elim)
+        if ss.get(savedkey):
+            st.markdown(f"🛡️ **{opt['postava_nazov']}** — zbroj zachránila život (žiaden nestratený).")
+        else:
+            render_life_loss(strata, opt, elim)
+            # 🛡️ zbroj „pri hode X+ zachráni život" — len vo FYZICKOM boji, raz za kampaň
+            if is_combat and isinstance(strata, int) and strata > 0:
+                info = _armor_save_threshold(cid)
+                usedkey = f"armorsave_used_{cid}"
+                if info and res["roll"] >= info[0] and not ss.get(usedkey):
+                    thr, nazov = info
+                    if st.button(f"🛡️ {nazov} — zachrániť život (hod {res['roll']} ≥ {thr}, raz za kampaň)",
+                                 key=f"asave_{ds}_{dec['id']}"):
+                        hp = ss["hp"][cid]
+                        hp["current"] = min(hp["max"], hp["current"] + strata)
+                        ss[usedkey] = True
+                        ss[savedkey] = True
+                        st.rerun()
 
     # Druhá šanca — každý neúspech (tesný aj veľký) dostane 1 pokus tou istou postavou.
     # Tesný neúspech (1–3): rovnaké DC. Neúspech 4+: DC +2. Smrť (21+) druhú šancu nedá.
@@ -827,7 +864,8 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
 
     if st.button(f"↩️ Znova rozhodnutie {n}", key=f"reset_{ds}_{dec['id']}"):
         for k in (reskey, f"res2_{ds}_{dec['id']}", f"crit1_{ds}_{dec['id']}",
-                  f"zloss_{ds}_{dec['id']}_1", f"zloss_{ds}_{dec['id']}_2"):
+                  f"zloss_{ds}_{dec['id']}_1", f"zloss_{ds}_{dec['id']}_2",
+                  f"armorsaved_{ds}_{dec['id']}"):
             ss.pop(k, None)
         st.rerun()
     return True
@@ -1353,6 +1391,12 @@ def use_consumable(cid, item):
         ss["temp_bonusy"].setdefault(dnes, []).append(
             {"postava": cid, "atribut": "all", "hodnota": val, "zdroj": item["nazov"]})
         msg = f"✨ {short_name(cid)}: +{val} ku všetkým hodom dnes."
+    elif typ == "auto_uspech":
+        sel = ss.get("sel_date")
+        dnes = sel.isoformat() if hasattr(sel, "isoformat") else datetime.date.today().isoformat()
+        ss["pending_ability"] = {"mechanika": "auto_uspech", "nazov": item["nazov"],
+                                 "postava": cid, "ds": dnes, "hodnota": 0}
+        msg = f"⭐ {item['nazov']} pripravená — v ďalšom rozhodnutí potvrď automatický úspech."
     else:
         msg = "Predmet použitý."
     left = (item.get("pocet_pouziti") or 1) - 1

@@ -5763,6 +5763,8 @@ def _c(typ, hodnota, popis, pocet):
 
 
 CONSUMABLE_EFFECTS = {
+    # — legendárne aktívne schopnosti —
+    "pečať sivomila":   _c("auto_uspech", 0, "1× automatický úspech na jedno rozhodnutie (potom zmizne)", 1),
     # — liečenie / oddych —
     "medovník":         _c("hod_bonus_zajtra", 1, "+1 ku všetkým hodom zajtra", 1),
     "zásoby jedla":     _c("heal", 1, "+1 život (jedlo počas oddychu)", 3),
