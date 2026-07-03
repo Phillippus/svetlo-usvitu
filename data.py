@@ -400,6 +400,7 @@ LEGENDARY_ITEMS = [
     {"nazov": "Pečať Sivomila",       "nositel": "Ktokoľvek",         "vyhody": "1× za kampaň automatický úspech",                  "nevyhody": "Po použití navždy zmizne",            "den": 34},
     {"nazov": "Prísaha Železného Dubu","nositel": "Bojovník",          "vyhody": "+3 ku všetkým hodom v záverečnej bitke",           "nevyhody": "−3 k hodu ak útočí prvý bez provokácie","den": 36},
     {"nazov": "Plášť hviezd",         "nositel": "Vedma / Kúzelník",  "vyhody": "+2 ku všetkým atribútom",                          "nevyhody": "−3 Výdrž",                            "den": 50},
+    {"nazov": "Luk Hviezdneho vetra", "nositel": "Elf",              "vyhody": "+4 Obratnosť, +2 Šťastie, pri hode 15+ šíp nikdy neminie","nevyhody": "−2 Sila, žiara tetivy v noci prezradí polohu","den": 47},
     {"nazov": "Zbroj Prvého strážcu", "nositel": "Bojovník",          "vyhody": "+5 Výdrž, pri hode 10+ zachráni život, +2 Sila",   "nevyhody": "−3 Obratnosť, −1 Šťastie",            "den": 55},
     {"nazov": "Runový kameň Úsvitu",  "nositel": "Bojovník",          "vyhody": "+3 Sila, +2 Obratnosť, pri hode 18+ automatický zásah","nevyhody": "−2 Výdrž za každý Žiarivý úder",       "den": 57},
     {"nazov": "Úlomky Svetla Úsvitu", "nositel": "Celá družina",      "vyhody": "+5 Mágia všetkým v záverečnej bitke",              "nevyhody": "Nedá sa rozdeliť",                    "den": None},
@@ -2900,7 +2901,7 @@ CAMPAIGN.update({
  "next_hint": "Opevnenie dediny"},
 
 "2026-08-16": {"day": 47, "chapter": 6, "group": "mala", "title": "Opevnenie dediny",
- "intro": "Celá dedina pomáha stavať provizórne hradby a pasce na ceste k Tichému Dolu.",
+ "intro": "Celá dedina pomáha stavať provizórne hradby a pasce na ceste k Tichému Dolu. Starý lukostrelec z dediny odovzdá Elfovi rodinnú relikviu — legendárny Luk Hviezdneho vetra.",
  "decision1": {"prompt": "Na čom bude družina pracovať najviac?", "type": "takticke", "options": [
    {"label": "A) Bojovník stavia pevnú drevenú palisádu", "postava": "bojovnik", "atribut": "sila", "bonus": 2, "dc": 19,
     "result_success": "Solídna, spoľahlivá obrana okolo dediny.",
@@ -2942,7 +2943,10 @@ CAMPAIGN.update({
     "result_fail": "Tiene voda nezastaví - plán zlyhá."}]},
  "items_day": [
    {"nazov": "Ochranný kameň svetla", "pre_koho": "vsetci", "kde": "najst", "cena": 0,
-    "vyhody": "+1 k obranným hodom pri dedine", "nevyhody": "—", "jednorazovy": False, "pocet_pouziti": 0}],
+    "vyhody": "+1 k obranným hodom pri dedine", "nevyhody": "—", "jednorazovy": False, "pocet_pouziti": 0},
+   {"nazov": "Luk Hviezdneho vetra", "pre_koho": "elf", "kde": "najst", "cena": 0, "kedy": "vzdy",
+    "vyhody": "+4 Obratnosť, +2 Šťastie, pri hode 15+ šíp nikdy neminie",
+    "nevyhody": "−2 Sila, žiara tetivy v noci prezradí polohu", "jednorazovy": False, "pocet_pouziti": 0}],
  "zlato_odmena": {"osobne": 4, "klanove": 5, "dovod": "Opevnenie dediny"},
  "milnik": None,
  "outro": "Pri súmraku zaútočí prvá vlna tieňových tvorov.",
