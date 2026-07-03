@@ -198,10 +198,11 @@ _ABILITY_USE_BUMP = {"temnozrak": 2, "zvieraci_prieskum": 1}
 
 SAVE_CORE = ["stats", "hp", "gold", "inventory", "milestone_points",
              "abilities", "active_effects", "temp_bonusy", "pending_ability"]
-PROGRESS_PREFIXES = ("res_", "res2_", "crit1_", "zloss_", "tcrit_", "tloss_", "armorsave_used_",
-                     "armorsaved_", "regen_done_", "regen_zone_", "predmet_done_", "nakup_done_",
-                     "levelup20_", "balloons_", "zlato_done_", "orb_used_", "stastna_kocka_",
-                     "dvojita_odmena_", "bojovnik_hranica_", "skip_", "skryta_den_")
+PROGRESS_PREFIXES = ("res_", "res2_", "crit1_", "zloss_", "tcrit_", "tloss_", "armorsave_left_",
+                     "armorsaved_", "armortry_", "armorroll_", "regen_done_", "regen_zone_",
+                     "predmet_done_", "nakup_done_", "levelup20_", "balloons_", "zlato_done_",
+                     "orb_used_", "stastna_kocka_", "dvojita_odmena_", "bojovnik_hranica_",
+                     "skip_", "skryta_den_")
 
 
 def serialize_state():
@@ -834,24 +835,36 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
     if real and res["outcome"] == "fail" and not positive:
         cid = opt["postava_id"]
         savedkey = f"armorsaved_{ds}_{dec['id']}"
+        tryedkey = f"armortry_{ds}_{dec['id']}"
+        rollkey = f"armorroll_{ds}_{dec['id']}"
         strata, elim = apply_life_loss(ds, dec, opt, res, attempt=1)
-        if ss.get(savedkey):
-            st.markdown(f"🛡️ **{opt['postava_nazov']}** — zbroj zachránila život (žiaden nestratený).")
-        else:
-            render_life_loss(strata, opt, elim)
-            # 🛡️ zbroj „pri hode X+ zachráni život" — len vo FYZICKOM boji, raz za kampaň
-            if is_combat and isinstance(strata, int) and strata > 0:
-                info = _armor_save_threshold(cid)
-                usedkey = f"armorsave_used_{cid}"
-                if info and res["roll"] >= info[0] and not ss.get(usedkey):
-                    thr, nazov = info
-                    if st.button(f"🛡️ {nazov} — zachrániť život (hod {res['roll']} ≥ {thr}, raz za kampaň)",
-                                 key=f"asave_{ds}_{dec['id']}"):
+        info = _armor_save_threshold(cid)     # (prah, názov) alebo None
+        render_life_loss(strata, opt, elim)
+        # 🛡️ zbroj „zachráni život" — len vo FYZICKOM boji; samostatný hod, prah podľa zbroje,
+        #    zostatok použití (Zbroj Prvého strážcu = najlepšia → stačí 10+). 5 pokusov/kampaň.
+        if is_combat and isinstance(strata, int) and strata > 0 and info:
+            thr, nazov = info
+            leftkey = f"armorsave_left_{cid}"
+            left = ss.get(leftkey, 5)
+            if ss.get(tryedkey):                       # pokus už prebehol → výsledok
+                sroll = ss.get(rollkey, 0)
+                if ss.get(savedkey):
+                    st.success(f"🛡️ **{nazov}** — hod **{sroll}** ≥ {thr}: zachránený **1 život**!")
+                else:
+                    st.markdown(f"🛡️ {nazov} — hod **{sroll}** < {thr}: nezachránila (život ostáva stratený).")
+            elif left > 0:
+                if st.button(f"🛡️ {nazov} — hod o záchranu 1 života (treba {thr}+, zostáva {left}×)",
+                             key=f"asavebtn_{ds}_{dec['id']}"):
+                    ph = st.empty()
+                    sroll = animated_roll(ph, accent)
+                    ss[leftkey] = left - 1
+                    ss[tryedkey] = True
+                    ss[rollkey] = sroll
+                    if sroll >= thr:
                         hp = ss["hp"][cid]
-                        hp["current"] = min(hp["max"], hp["current"] + strata)
-                        ss[usedkey] = True
+                        hp["current"] = min(hp["max"], hp["current"] + 1)
                         ss[savedkey] = True
-                        st.rerun()
+                    st.rerun()
 
     # Druhá šanca — každý neúspech (tesný aj veľký) dostane 1 pokus tou istou postavou.
     # Tesný neúspech (1–3): rovnaké DC. Neúspech 4+: DC +2. Smrť (21+) druhú šancu nedá.
@@ -865,7 +878,8 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
     if st.button(f"↩️ Znova rozhodnutie {n}", key=f"reset_{ds}_{dec['id']}"):
         for k in (reskey, f"res2_{ds}_{dec['id']}", f"crit1_{ds}_{dec['id']}",
                   f"zloss_{ds}_{dec['id']}_1", f"zloss_{ds}_{dec['id']}_2",
-                  f"armorsaved_{ds}_{dec['id']}"):
+                  f"armorsaved_{ds}_{dec['id']}", f"armortry_{ds}_{dec['id']}",
+                  f"armorroll_{ds}_{dec['id']}"):
             ss.pop(k, None)
         st.rerun()
     return True
