@@ -142,19 +142,21 @@ _SCENES = {
              + "<g fill='#1e3a1e' opacity='0.92'><rect x='980' y='248' width='18' height='97'/>"
                "<path d='M989,283 q-42,-5 -42,-46 q0,31 42,31 Z'/>"
                "<path d='M989,300 q44,-5 44,-50 q0,33 -44,33 Z'/></g>"),
-    6: _wrap(_sky("n", "#1c0820", "#050208")
-             + "<ellipse cx='600' cy='406' rx='760' ry='150' fill='#7c1222' opacity='0.5'/>"
+    6: _wrap(_sky("n", "#5b2a8f", "#12061f")
+             + "<ellipse cx='600' cy='406' rx='820' ry='185' fill='#a03bd8' opacity='0.55'/>"
+             + "<ellipse cx='600' cy='412' rx='520' ry='120' fill='#c94fe8' opacity='0.4'/>"
              + _stars([(120, 70, 1.5), (300, 50, 1), (480, 90, 1.5), (700, 60, 1), (860, 100, 1.5),
-                       (1040, 70, 1), (200, 130, 1), (620, 130, 1), (960, 45, 1.5), (400, 140, 1)], "#b9a8c8")
-             + "<circle cx='250' cy='92' r='44' fill='#c23a2a'/>"
-             + "<circle cx='250' cy='92' r='44' fill='#7a1220' opacity='0.4'/>"
-             + "<g fill='#060210'><rect x='430' y='228' width='340' height='172'/>"
+                       (1040, 70, 1), (200, 130, 1), (620, 130, 1), (960, 45, 1.5), (400, 140, 1)], "#e6d8f5")
+             + "<circle cx='250' cy='92' r='52' fill='#e05bc0' opacity='0.35'/>"
+             + "<circle cx='250' cy='92' r='44' fill='#d94a8a'/>"
+             + "<circle cx='250' cy='92' r='44' fill='#7a1250' opacity='0.35'/>"
+             + "<g fill='#0c0418'><rect x='430' y='228' width='340' height='172'/>"
                "<rect x='465' y='172' width='62' height='228'/><rect x='673' y='172' width='62' height='228'/>"
                "<rect x='558' y='138' width='84' height='262'/>"
                "<polygon points='496,172 496,138 526,172'/><polygon points='704,172 704,138 734,172'/>"
                "<g>" + "".join(f"<rect x='{x}' y='212' width='18' height='24'/>" for x in range(438, 762, 40)) + "</g>"
                "</g>"
-             + "<g fill='#e85020'><rect x='486' y='250' width='15' height='26'/><rect x='701' y='250' width='15' height='26'/>"
+             + "<g fill='#e05be8'><rect x='486' y='250' width='15' height='26'/><rect x='701' y='250' width='15' height='26'/>"
                "<rect x='592' y='205' width='16' height='30'/></g>"),
 }
 
@@ -174,8 +176,8 @@ _OVERLAY = {
         " rgba(14,17,23,0.9) 66%, #0e1117 82%)"),
     5: ("linear-gradient(180deg, rgba(20,12,6,0.22) 0%, rgba(16,12,10,0.48) 40%,"
         " rgba(14,17,23,0.9) 66%, #0e1117 82%)"),
-    6: ("linear-gradient(180deg, rgba(40,4,14,0.45) 0%, rgba(14,6,18,0.6) 30%,"
-        " rgba(8,4,12,0.95) 60%, #07050c 80%)"),
+    6: ("linear-gradient(180deg, rgba(45,15,70,0.24) 0%, rgba(30,10,50,0.46) 38%,"
+        " rgba(12,6,24,0.9) 66%, #0c0618 82%)"),
 }
 _OVERLAY_DEFAULT = ("linear-gradient(180deg, rgba(14,17,23,0.42) 0%, rgba(14,17,23,0.60) 35%,"
                     " rgba(14,17,23,0.93) 62%, #0e1117 80%)")
@@ -188,7 +190,7 @@ def _scene_bg(ch):
         return None
     url = 'url("data:image/svg+xml,' + urllib.parse.quote(svg) + '")'
     overlay = _OVERLAY.get(ch, _OVERLAY_DEFAULT)
-    base = "#07050c" if ch == 6 else BASE_BG
+    base = "#0c0618" if ch == 6 else BASE_BG
     return f"{overlay}, {url} top center / 100% auto no-repeat, {base}"
 
 
