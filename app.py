@@ -301,7 +301,7 @@ PROGRESS_PREFIXES = ("res_", "res2_", "crit1_", "zloss_", "tcrit_", "tloss_", "a
                      "armorsaved_", "armortry_", "armorroll_", "regen_done_", "regen_zone_",
                      "predmet_done_", "nakup_done_", "levelup20_", "balloons_", "zlato_done_",
                      "orb_used_", "stastna_kocka_", "dvojita_odmena_", "bojovnik_hranica_",
-                     "skip_", "skryta_den_")
+                     "skip_", "skryta_den_", "absorb_", "guard_shield_")
 
 
 def serialize_state():
@@ -512,13 +512,24 @@ def apply_life_loss(ds, dec, opt, res, attempt):
     Vráti (strata, eliminovaný_bool). strata je 0 / int / 'smrt'."""
     ss = st.session_state
     strata = zivoty_za_rozdiel(-res["diff"])
-    hp = ss["hp"][opt["postava_id"]]
+    cid = opt["postava_id"]
+    hp = ss["hp"][cid]
+    akey = f"{ds}_{dec['id']}_{attempt}"
+    if ss.get(f"absorb_{akey}") == "guard":        # už pohltené Štítom Prvého strážcu
+        return "guard", hp["current"] <= 0
     if strata == 0:
         return 0, hp["current"] <= 0
     lkey = f"zloss_{ds}_{dec['id']}_{attempt}"
-    if not ss.get(lkey):
-        hp["current"] = 0 if strata == "smrt" else max(0, hp["current"] - strata)
+    if ss.get(lkey):
+        return strata, hp["current"] <= 0
+    # 🛡️ Štít Prvého strážcu — úplná ochrana pred stratou (aj smrťou); pohltí jeden zásah
+    if ss.get(f"guard_shield_{cid}"):
+        ss.pop(f"guard_shield_{cid}", None)
+        ss[f"absorb_{akey}"] = "guard"
         ss[lkey] = True
+        return "guard", hp["current"] <= 0
+    hp["current"] = 0 if strata == "smrt" else max(0, hp["current"] - strata)
+    ss[lkey] = True
     return strata, hp["current"] <= 0
 
 
@@ -573,6 +584,10 @@ def _armor_save_best(cid):
 
 def render_life_loss(strata, opt, eliminated):
     """Zobrazí hlášku o strate životov / eliminácii."""
+    if strata == "guard":
+        st.info(f"🛡️ **Štít Prvého strážcu** pohltil celý zásah — "
+                f"{opt['postava_nazov']} nestráca žiaden život!")
+        return
     if strata == "smrt":
         st.error(f"💀 Smrteľný neúspech — {opt['postava_nazov']} je **ELIMINOVANÝ/Á**!")
     elif strata:
@@ -940,12 +955,18 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
     # Hod 1 — kritický neúspech: −1 život navyše (raz). Šťastná kocka / Prorocká vízia to rušia.
     if real and res["roll"] == 1 and res.get("roll_eff", 1) == 1 and not positive:
         critkey = f"crit1_{ds}_{dec['id']}"
-        hp = ss["hp"][opt["postava_id"]]
-        if not ss.get(critkey):
-            hp["current"] = max(0, hp["current"] - 1)
-            ss[critkey] = True
-        chvost = " — **ELIMINOVANÝ/Á** ☠️" if hp["current"] <= 0 else ""
-        st.caption(f"💀 Kritický neúspech (hod 1): {opt['postava_nazov']} −1 život navyše{chvost}.")
+        cid_c = opt["postava_id"]
+        hp = ss["hp"][cid_c]
+        # 🛡️ Štít Prvého strážcu — úplná ochrana pohltí aj tento −1 (armed alebo už pohltil hlavný zásah)
+        shielded = ss.get(f"guard_shield_{cid_c}") or ss.get(f"absorb_{ds}_{dec['id']}_1") == "guard"
+        if shielded:
+            st.caption(f"🛡️ Štít Prvého strážcu pohltil aj kritický neúspech — {opt['postava_nazov']} bez −1.")
+        else:
+            if not ss.get(critkey):
+                hp["current"] = max(0, hp["current"] - 1)
+                ss[critkey] = True
+            chvost = " — **ELIMINOVANÝ/Á** ☠️" if hp["current"] <= 0 else ""
+            st.caption(f"💀 Kritický neúspech (hod 1): {opt['postava_nazov']} −1 život navyše{chvost}.")
 
     # Levelup pri hode 20 (max 1× za deň na postavu)
     if real and res["roll"] == 20:
@@ -1025,7 +1046,8 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
         for k in (reskey, f"res2_{ds}_{dec['id']}", f"crit1_{ds}_{dec['id']}",
                   f"zloss_{ds}_{dec['id']}_1", f"zloss_{ds}_{dec['id']}_2",
                   f"armorsaved_{ds}_{dec['id']}", f"armortry_{ds}_{dec['id']}",
-                  f"armorroll_{ds}_{dec['id']}"):
+                  f"armorroll_{ds}_{dec['id']}",
+                  f"absorb_{ds}_{dec['id']}_1", f"absorb_{ds}_{dec['id']}_2"):
             ss.pop(k, None)
         st.rerun()
     return True
@@ -1522,12 +1544,14 @@ def render_regen_decision(ds, entry):
             _apply({c: 0 for c in zivi}, "Nehostinné prostredie (+0)")
 
 
-def use_consumable(cid, item):
-    """Aplikuje efekt spotrebného predmetu na postavu. Vráti (hláška, minulo_sa_bool)."""
+def use_consumable(cid, item, target=None):
+    """Aplikuje efekt spotrebného predmetu. `target` = na koho (pri cielených schopnostiach),
+    inak sám nositeľ. Vráti (hláška, minulo_sa_bool)."""
     ss = st.session_state
     p = item.get("pouzitie") or {}
     typ = p.get("typ")
     val = p.get("hodnota", 0)
+    tgt = target or cid
     hp = ss["hp"][cid]
     if typ == "heal":
         pred = hp["current"]
@@ -1560,18 +1584,17 @@ def use_consumable(cid, item):
     elif typ == "hviezdny_zavoj":
         sel = ss.get("sel_date")
         dnes = sel.isoformat() if hasattr(sel, "isoformat") else datetime.date.today().isoformat()
+        # celá družina +1 a nikto pod 10; vybraná postava navyše +2 (spolu +3)
         ss["temp_bonusy"].setdefault(dnes, []).append(
-            {"postava": "all", "atribut": "all", "hodnota": val or 2, "zdroj": item["nazov"]})
+            {"postava": "all", "atribut": "all", "hodnota": 1, "zdroj": item["nazov"]})
+        ss["temp_bonusy"].setdefault(dnes, []).append(
+            {"postava": tgt, "atribut": "all", "hodnota": 2, "zdroj": f"{item['nazov']} (závoj)"})
         ss[f"stastna_kocka_{dnes}"] = True
-        msg = f"🌌 {item['nazov']}: celá družina +{val or 2} ku hodom dnes a žiaden hod pod 10."
-    elif typ == "vyzva_strazcu":
-        sel = ss.get("sel_date")
-        dnes = sel.isoformat() if hasattr(sel, "isoformat") else datetime.date.today().isoformat()
-        ss["temp_bonusy"].setdefault(dnes, []).append(
-            {"postava": cid, "atribut": "all", "hodnota": val or 4, "zdroj": item["nazov"]})
-        ss["temp_bonusy"].setdefault(dnes, []).append(
-            {"postava": "all", "atribut": "all", "hodnota": 1, "zdroj": f"{item['nazov']} (družina)"})
-        msg = f"🛡️ {item['nazov']}: {short_name(cid)} +{val or 4} a celá družina +1 ku hodom dnes."
+        msg = f"🌌 {item['nazov']}: {short_name(tgt)} +3, družina +1 ku hodom a nikto pod 10 (dnes)."
+    elif typ == "plna_ochrana":
+        ss[f"guard_shield_{tgt}"] = True
+        msg = (f"🛡️ {item['nazov']}: {short_name(tgt)} je pod úplnou ochranou — ďalšia strata "
+               f"života (aj smrteľná) sa nezapočíta.")
     elif typ == "vyhoda_hodu":
         sel = ss.get("sel_date")
         dnes = sel.isoformat() if hasattr(sel, "isoformat") else datetime.date.today().isoformat()
@@ -1707,8 +1730,16 @@ def render_char_card(cid, entry, accent):
                 inv.pop(i); st.rerun()
             # aktívne spotrebné majú tlačidlo Použiť; pasívne (regen_bonus) sa aplikujú pri nocľahu
             if pouzitie and not pasivny and (pocet or 0) > 0:
+                cielene = pouzitie.get("typ") in ("plna_ochrana", "hviezdny_zavoj")
+                tgt = cid
+                if cielene:
+                    ciele = active_ids(entry)
+                    tgt = st.selectbox("Na koho použiť?", ciele,
+                                       index=ciele.index(cid) if cid in ciele else 0,
+                                       format_func=lambda c: f"{PARTY_ALL[c]['icon']} {short_name(c)}",
+                                       key=f"usetgt_{cid}_{i}")
                 if st.button(f"✅ Použiť — {pouzitie.get('popis','')}", key=f"use_{cid}_{i}"):
-                    msg, minulo = use_consumable(cid, item)
+                    msg, minulo = use_consumable(cid, item, target=tgt)
                     if minulo and not item.get("trvaly"):
                         inv.pop(i)
                     st.toast(msg, icon="✨")

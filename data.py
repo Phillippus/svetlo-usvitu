@@ -399,9 +399,9 @@ STARTING_EQUIPMENT = {
 LEGENDARY_ITEMS = [
     {"nazov": "Pečať Sivomila",       "nositel": "Ktokoľvek",         "vyhody": "1× za kampaň automatický úspech",                  "nevyhody": "Po použití navždy zmizne",            "den": 34},
     {"nazov": "Prísaha Železného Dubu","nositel": "Bojovník",          "vyhody": "+3 ku všetkým hodom v záverečnej bitke",           "nevyhody": "−3 k hodu ak útočí prvý bez provokácie","den": 36},
-    {"nazov": "Plášť hviezd",         "nositel": "Vedma / Kúzelník",  "vyhody": "+2 ku všetkým atribútom · 🌌 Hviezdny závoj (2× za hru): družina +2 a nikto pod 10 (dnes)","nevyhody": "−3 Výdrž",                            "den": 50},
+    {"nazov": "Plášť hviezd",         "nositel": "Vedma / Kúzelník",  "vyhody": "+2 Mágia, +2 Intelekt, +2 Múdrosť · 🌌 Hviezdny závoj (2× za hru): vybraná postava +3, družina +1 a nikto pod 10 (dnes)","nevyhody": "−3 Výdrž",                            "den": 50},
     {"nazov": "Luk Hviezdneho vetra", "nositel": "Elf",              "vyhody": "+4 Obratnosť, +2 Šťastie, pri hode 15+ šíp nikdy neminie · 🏹 Hviezdny vietor (3× za hru): ďalší hod s výhodou","nevyhody": "−2 Sila, žiara tetivy v noci prezradí polohu","den": 47},
-    {"nazov": "Zbroj Prvého strážcu", "nositel": "Bojovník",          "vyhody": "+5 Výdrž, pri hode 10+ zachráni život, +2 Sila · 🛡️ Výzva strážcu (2× za hru): Bojovník +4 a družina +1 (dnes)","nevyhody": "−3 Obratnosť, −1 Šťastie",            "den": 21},
+    {"nazov": "Zbroj Prvého strážcu", "nositel": "Bojovník",          "vyhody": "+5 Výdrž, pri hode 10+ zachráni život, +2 Sila · 🛡️ Štít Prvého strážcu (2× za hru): úplná ochrana ľubovoľnej postavy pred stratou života (aj smrťou)","nevyhody": "−3 Obratnosť, −1 Šťastie",            "den": 21},
     {"nazov": "Runový kameň Úsvitu",  "nositel": "Bojovník",          "vyhody": "+3 Sila, +2 Obratnosť, pri hode 18+ automatický zásah","nevyhody": "−2 Výdrž za každý Žiarivý úder",       "den": 57},
     {"nazov": "Úlomky Svetla Úsvitu", "nositel": "Celá družina",      "vyhody": "+5 Mágia všetkým v záverečnej bitke",              "nevyhody": "Nedá sa rozdeliť",                    "den": None},
 ]
@@ -3080,7 +3080,7 @@ CAMPAIGN.update({
     "result_success": "Symbolické ocenenie odvahy zachráncu.",
     "result_near": "Ruka sa chveje dojatím.",
     "result_fail": "Z dojatia úlomok takmer vykĺzne."}]},
- "decision3": {"prompt": "Komu pripadne legendárny Plášť hviezd (+2 všetky atribúty, −3 Výdrž)?", "type": "takticke", "options": [
+ "decision3": {"prompt": "Komu pripadne legendárny Plášť hviezd (+2 Mágia/Intelekt/Múdrosť, −3 Výdrž)?", "type": "takticke", "options": [
    {"label": "A) Vedme - posilní jej mágiu aj veštby", "postava": "vedma", "atribut": "magia", "bonus": 0, "dc": 19,
     "result_success": "Plášť sadne Vedme dokonale - jej sila prudko vzrastie.",
     "result_near": "Plášť je ťažký - Vedma si naň zvyká.",
@@ -3095,7 +3095,7 @@ CAMPAIGN.update({
     "result_fail": "Nerozhodnosť oslabí dôveru pred bitkou."}]},
  "items_day": [
    {"nazov": "Plášť hviezd", "pre_koho": "vedma", "kde": "najst", "cena": 0,
-    "vyhody": "+2 ku všetkým atribútom", "nevyhody": "−3 Výdrž", "jednorazovy": False, "pocet_pouziti": 0}],
+    "vyhody": "+2 Mágia, +2 Intelekt, +2 Múdrosť", "nevyhody": "−3 Výdrž", "jednorazovy": False, "pocet_pouziti": 0}],
  "zlato_odmena": {"osobne": 6, "klanove": 6, "dovod": "Spojenie úlomkov a Plášť hviezd"},
  "milnik": {"typ": "mini_boss", "body": 2, "popis": "Obrad spojenia úlomkov"},
  "outro": "Spojené Svetlo Úsvitu vyšle družine jasné videnie.",
@@ -5768,8 +5768,8 @@ CONSUMABLE_EFFECTS = {
     # — legendárne aktívne schopnosti —
     "pečať sivomila":   _c("auto_uspech", 0, "1× automatický úspech na jedno rozhodnutie (potom zmizne)", 1),
     # legendárne predmety s TRVALÝM efektom + tlačidlom na pár použití za hru (viď LEGENDARY_ACTIVE)
-    "plášť hviezd":     _c("hviezdny_zavoj", 2, "Hviezdny závoj: celá družina +2 ku hodom a nikto pod 10 (dnes)", 2),
-    "zbroj prvého strážcu": _c("vyzva_strazcu", 4, "Výzva strážcu: Bojovník +4 a družina +1 ku hodom (dnes)", 2),
+    "plášť hviezd":     _c("hviezdny_zavoj", 2, "Hviezdny závoj: vybraná postava +3, družina +1 ku hodom a nikto pod 10 (dnes)", 2),
+    "zbroj prvého strážcu": _c("plna_ochrana", 0, "Štít Prvého strážcu: úplná ochrana vybranej postavy pred stratou života (aj smrťou) — 1 zásah", 2),
     "luk hviezdneho vetra": _c("vyhoda_hodu", 0, "Hviezdny vietor: ďalší hod tejto postavy je s výhodou (2 kocky, vyššia)", 3),
     # — liečenie / oddych —
     "medovník":         _c("hod_bonus_zajtra", 1, "+1 ku všetkým hodom zajtra", 1),
