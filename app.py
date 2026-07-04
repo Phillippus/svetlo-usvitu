@@ -99,22 +99,25 @@ def _wrap(inner):
 
 
 _SCENES = {
-    0: _wrap(_sky("k", "#12494a", "#0e1117")
-             + "<circle cx='980' cy='95' r='42' fill='#cfeaea' opacity='0.85'/>"
-             + "<rect y='255' width='1200' height='145' fill='#0b2a2b' opacity='0.55'/>"
-             + "<g stroke='#8fd0d0' stroke-width='3' opacity='0.25'>"
-               "<line x1='915' y1='275' x2='1045' y2='275'/><line x1='935' y1='305' x2='1025' y2='305'/>"
-               "<line x1='955' y1='335' x2='1005' y2='335'/></g>"),
-    1: _wrap(_sky("f", "#1c3d2b", "#0e1a14")
-             + "<rect y='150' width='1200' height='60' fill='#7fae90' opacity='0.10'/>"
-             + "<rect y='230' width='1200' height='70' fill='#7fae90' opacity='0.08'/>"
-             + _pines(300, 9, 70, 150, "#0c2419", 0.55)
-             + _pines(400, 7, 95, 210, "#081810", 0.9)),
-    2: _wrap(_sky("r", "#123a5a", "#0e1526")
-             + "<circle cx='250' cy='90' r='34' fill='#e8f0ff' opacity='0.7'/>"
-             + "<path d='M0,400 L0,270 Q300,220 600,280 T1200,250 L1200,400 Z' fill='#12314a' opacity='0.8'/>"
-             + "<path d='M0,400 L0,320 Q300,290 620,340 T1200,315 L1200,400 Z' fill='#0c2136' opacity='0.9'/>"
-             + "<path d='M540,255 Q600,320 560,400 L640,400 Q660,320 620,258 Z' fill='#3a86b8' opacity='0.55'/>"),
+    0: _wrap(_sky("k", "#1d6a6f", "#123236")
+             + _stars([(140, 60, 1.4), (360, 80, 1), (540, 50, 1.3), (720, 90, 1), (1050, 120, 1)], "#d4f2f2")
+             + "<circle cx='980' cy='95' r='48' fill='#eafcfc' opacity='0.95'/>"
+             + "<circle cx='980' cy='95' r='74' fill='#bfeaea' opacity='0.22'/>"
+             + "<rect y='255' width='1200' height='145' fill='#123f42' opacity='0.6'/>"
+             + "<g stroke='#a6e0e0' stroke-width='3' opacity='0.32'>"
+               "<line x1='915' y1='300' x2='1045' y2='300'/><line x1='935' y1='330' x2='1025' y2='330'/>"
+               "<line x1='955' y1='360' x2='1005' y2='360'/></g>"),
+    1: _wrap(_sky("f", "#356a4c", "#16281e")
+             + "<rect y='150' width='1200' height='62' fill='#aadcbc' opacity='0.15'/>"
+             + "<rect y='226' width='1200' height='80' fill='#aadcbc' opacity='0.12'/>"
+             + _pines(300, 9, 70, 150, "#174433", 0.6)
+             + _pines(400, 7, 95, 210, "#0e2c1e", 0.92)),
+    2: _wrap(_sky("r", "#1d5a86", "#122438")
+             + "<circle cx='250' cy='90' r='38' fill='#f2f7ff' opacity='0.85'/>"
+             + "<circle cx='250' cy='90' r='60' fill='#dfeeff' opacity='0.18'/>"
+             + "<path d='M0,400 L0,270 Q300,220 600,280 T1200,250 L1200,400 Z' fill='#1a4a6a' opacity='0.85'/>"
+             + "<path d='M0,400 L0,320 Q300,290 620,340 T1200,315 L1200,400 Z' fill='#123650' opacity='0.92'/>"
+             + "<path d='M540,255 Q600,320 560,400 L640,400 Q660,320 620,258 Z' fill='#5aa6d8' opacity='0.6'/>"),
     3: _wrap(_sky("b", "#33cfe6", "#1596b0")
              + "<circle cx='930' cy='105' r='60' fill='#fff4a8'/>"
              + "<circle cx='930' cy='105' r='100' fill='#fff29a' opacity='0.28'/>"
@@ -172,15 +175,17 @@ CHAPTER_BG = {
 # Sila prekryvu nad scénou (kvôli čitateľnosti). Veselé kapitoly (pláž, púšť) = jemnejší
 # → jasnejšie farby; VI = tmavší s červeným nádychom → zlovestnejšie.
 _OVERLAY = {
-    3: ("linear-gradient(180deg, rgba(14,17,23,0.22) 0%, rgba(14,17,23,0.48) 40%,"
-        " rgba(14,17,23,0.9) 66%, #0e1117 82%)"),
-    5: ("linear-gradient(180deg, rgba(20,12,6,0.22) 0%, rgba(16,12,10,0.48) 40%,"
-        " rgba(14,17,23,0.9) 66%, #0e1117 82%)"),
-    6: ("linear-gradient(180deg, rgba(45,15,70,0.24) 0%, rgba(30,10,50,0.46) 38%,"
-        " rgba(12,6,24,0.9) 66%, #0c0618 82%)"),
+    3: "rgba(14,17,23,0.12) 0%, rgba(14,17,23,0.34) 45%, rgba(14,17,23,0.58) 72%",
+    5: "rgba(30,18,6,0.12) 0%, rgba(30,18,6,0.34) 45%, rgba(30,18,6,0.58) 72%",
+    6: "rgba(45,15,70,0.22) 0%, rgba(30,10,50,0.46) 42%, rgba(18,8,32,0.7) 72%",
 }
-_OVERLAY_DEFAULT = ("linear-gradient(180deg, rgba(14,17,23,0.42) 0%, rgba(14,17,23,0.60) 35%,"
-                    " rgba(14,17,23,0.93) 62%, #0e1117 80%)")
+_OVERLAY_DEFAULT = "rgba(10,12,18,0.14) 0%, rgba(10,12,18,0.38) 45%, rgba(10,12,18,0.62) 72%"
+
+# Ladiaca farba kapitoly — vyplni plochu pod scenou (namiesto ciernej) a zjednoti vzhlad.
+_BASE = {
+    0: "#102f31", 1: "#0d1f18", 2: "#0e2236", 3: "#123138",
+    4: "#181022", 5: "#402a14", 6: "#0c0618",
+}
 
 
 def _scene_bg(ch):
@@ -189,8 +194,9 @@ def _scene_bg(ch):
     if not svg:
         return None
     url = 'url("data:image/svg+xml,' + urllib.parse.quote(svg) + '")'
-    overlay = _OVERLAY.get(ch, _OVERLAY_DEFAULT)
-    base = "#0c0618" if ch == 6 else BASE_BG
+    base = _BASE.get(ch, BASE_BG)
+    stops = _OVERLAY.get(ch, _OVERLAY_DEFAULT)
+    overlay = f"linear-gradient(180deg, {stops}, {base} 86%)"
     return f"{overlay}, {url} top center / 100% auto no-repeat, {base}"
 
 
