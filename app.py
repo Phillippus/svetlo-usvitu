@@ -881,6 +881,10 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
         if pend and not positive and pend.get("mechanika") == "vyhoda_hodu":
             st.info(f"🏹 **{pend['nazov']}** pripravený — hod postavy "
                     f"{short_name(pend['postava'])} bude s výhodou (2 kocky, počíta sa vyššia).")
+        # ── Priazeň hviezd — ak hod danej postavy padne 15+, ráta sa ako 20 (kritický úspech) ──
+        if pend and not positive and pend.get("mechanika") == "priazen_hviezd":
+            st.info(f"🌌 **{pend['nazov']}** pripravená — ak hod postavy {short_name(pend['postava'])} "
+                    f"padne **15+**, ráta sa ako kritický úspech (20).")
 
         # ── normálne možnosti (s prípadným znížením DC + skrytou možnosťou D) ──
         opts = list(dec["options"])
@@ -898,15 +902,25 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
                          key=f"btn_{ds}_{dec['id']}_{idx}", disabled=eliminovana):
                 adv = (pend and pend.get("mechanika") == "vyhoda_hodu"
                        and pend.get("postava") == opt["postava_id"])
+                priazen = (pend and pend.get("mechanika") == "priazen_hviezd"
+                           and pend.get("postava") == opt["postava_id"])
                 ph = st.empty()
                 roll = animated_roll(ph, accent)
+                eff = roll
                 if adv:                        # Hviezdny vietor — druhá kocka, počíta sa vyššia
                     roll2 = animated_roll(ph, accent)
-                    res = evaluate(opt_disp, max(roll, roll2), opt["postava_id"], is_combat, ds)
-                    res["adv"] = [roll, roll2]
-                    ss.pop("pending_ability", None)
+                    eff = max(roll, roll2)
+                if priazen and eff >= 15:       # Priazeň hviezd — 15+ ráta ako prirodzená 20
+                    res = evaluate(opt_disp, 20, opt["postava_id"], is_combat, ds)
                 else:
-                    res = evaluate(opt_disp, roll, opt["postava_id"], is_combat, ds)
+                    res = evaluate(opt_disp, eff, opt["postava_id"], is_combat, ds)
+                if adv:
+                    res["adv"] = [roll, roll2]
+                if priazen:
+                    res["priazen"] = eff
+                    ss.pop("pending_ability", None)
+                elif adv:
+                    ss.pop("pending_ability", None)
                 res["idx"] = idx
                 res["opt"] = opt_disp          # snapshot pre zobrazenie (aj pri generovanej D)
                 ss[reskey] = res
@@ -929,6 +943,12 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
     if res.get("adv"):
         a, b = res["adv"]
         st.caption(f"🏹 Výhoda (Hviezdny vietor): hody **{a}** a **{b}** → počíta sa **{max(a, b)}**.")
+    if res.get("priazen") is not None:
+        e = res["priazen"]
+        if e >= 15:
+            st.caption(f"🌌 Priazeň hviezd: hod **{e}** (15+) → ráta sa ako **20** — kritický úspech!")
+        else:
+            st.caption(f"🌌 Priazeň hviezd: hod **{e}** nedosiahol 15 — hviezdy sa tentokrát nezarovnali.")
     if res.get("spoj"):
         lines = " + ".join(f"{PARTY_ALL[c]['icon']}{short_name(c)} ({roll}+{hv} {atr_name(hk)})"
                            for c, roll, hv, hk in res["spoj_rolls"])
@@ -1581,16 +1601,13 @@ def use_consumable(cid, item, target=None):
         ss["pending_ability"] = {"mechanika": "auto_uspech", "nazov": item["nazov"],
                                  "postava": cid, "ds": dnes, "hodnota": 0}
         msg = f"⭐ {item['nazov']} pripravená — v ďalšom rozhodnutí potvrď automatický úspech."
-    elif typ == "hviezdny_zavoj":
+    elif typ == "priazen_hviezd":
         sel = ss.get("sel_date")
         dnes = sel.isoformat() if hasattr(sel, "isoformat") else datetime.date.today().isoformat()
-        # celá družina +1 a nikto pod 10; vybraná postava navyše +2 (spolu +3)
-        ss["temp_bonusy"].setdefault(dnes, []).append(
-            {"postava": "all", "atribut": "all", "hodnota": 1, "zdroj": item["nazov"]})
-        ss["temp_bonusy"].setdefault(dnes, []).append(
-            {"postava": tgt, "atribut": "all", "hodnota": 2, "zdroj": f"{item['nazov']} (závoj)"})
-        ss[f"stastna_kocka_{dnes}"] = True
-        msg = f"🌌 {item['nazov']}: {short_name(tgt)} +3, družina +1 ku hodom a nikto pod 10 (dnes)."
+        ss["pending_ability"] = {"mechanika": "priazen_hviezd", "nazov": item["nazov"],
+                                 "postava": tgt, "ds": dnes, "hodnota": 0}
+        msg = (f"🌌 {item['nazov']} pripravený — ak ďalší hod {short_name(tgt)} padne 15+, "
+               f"ráta sa ako kritický úspech (20).")
     elif typ == "plna_ochrana":
         ss[f"guard_shield_{tgt}"] = True
         msg = (f"🛡️ {item['nazov']}: {short_name(tgt)} je pod úplnou ochranou — ďalšia strata "
@@ -1730,7 +1747,7 @@ def render_char_card(cid, entry, accent):
                 inv.pop(i); st.rerun()
             # aktívne spotrebné majú tlačidlo Použiť; pasívne (regen_bonus) sa aplikujú pri nocľahu
             if pouzitie and not pasivny and (pocet or 0) > 0:
-                cielene = pouzitie.get("typ") in ("plna_ochrana", "hviezdny_zavoj")
+                cielene = pouzitie.get("typ") in ("plna_ochrana", "priazen_hviezd")
                 tgt = cid
                 if cielene:
                     ciele = active_ids(entry)
