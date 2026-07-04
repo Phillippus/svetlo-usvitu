@@ -175,16 +175,16 @@ CHAPTER_BG = {
 # Sila prekryvu nad scénou (kvôli čitateľnosti). Veselé kapitoly (pláž, púšť) = jemnejší
 # → jasnejšie farby; VI = tmavší s červeným nádychom → zlovestnejšie.
 _OVERLAY = {
-    3: "rgba(14,17,23,0.12) 0%, rgba(14,17,23,0.34) 45%, rgba(14,17,23,0.58) 72%",
-    5: "rgba(30,18,6,0.12) 0%, rgba(30,18,6,0.34) 45%, rgba(30,18,6,0.58) 72%",
+    3: "rgba(40,30,12,0.12) 0%, rgba(40,30,12,0.34) 45%, rgba(40,30,12,0.56) 72%",
+    5: "rgba(45,28,8,0.12) 0%, rgba(45,28,8,0.34) 45%, rgba(45,28,8,0.56) 72%",
     6: "rgba(45,15,70,0.22) 0%, rgba(30,10,50,0.46) 42%, rgba(18,8,32,0.7) 72%",
 }
 _OVERLAY_DEFAULT = "rgba(10,12,18,0.14) 0%, rgba(10,12,18,0.38) 45%, rgba(10,12,18,0.62) 72%"
 
 # Ladiaca farba kapitoly — vyplni plochu pod scenou (namiesto ciernej) a zjednoti vzhlad.
 _BASE = {
-    0: "#102f31", 1: "#0d1f18", 2: "#0e2236", 3: "#123138",
-    4: "#181022", 5: "#402a14", 6: "#0c0618",
+    0: "#102f31", 1: "#0d1f18", 2: "#0e2236", 3: "#c9a862",
+    4: "#181022", 5: "#cf9040", 6: "#0c0618",
 }
 
 
