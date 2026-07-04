@@ -198,7 +198,7 @@ _ABILITY_USE_BUMP = {"temnozrak": 2, "zvieraci_prieskum": 1}
 
 SAVE_CORE = ["stats", "hp", "gold", "inventory", "milestone_points",
              "abilities", "active_effects", "temp_bonusy", "pending_ability"]
-PROGRESS_PREFIXES = ("res_", "res2_", "crit1_", "zloss_", "tcrit_", "tloss_", "armorsave_left_",
+PROGRESS_PREFIXES = ("res_", "res2_", "crit1_", "zloss_", "tcrit_", "tloss_", "armorleft_",
                      "armorsaved_", "armortry_", "armorroll_", "regen_done_", "regen_zone_",
                      "predmet_done_", "nakup_done_", "levelup20_", "balloons_", "zlato_done_",
                      "orb_used_", "stastna_kocka_", "dvojita_odmena_", "bojovnik_hranica_",
@@ -423,32 +423,52 @@ def apply_life_loss(ds, dec, opt, res, attempt):
     return strata, hp["current"] <= 0
 
 
-def _armor_save_threshold(cid):
-    """Prah záchrany života z brnenia/štítu vo výbave postavy (inventár + štartová).
-    Tierovanie: Zbroj Prvého strážcu = 10 (najlepšia) · ostatné brnenia ≥12 ·
-    štíty ≥15. Vráti (prah, názov) najlepšej (najnižší prah) alebo None."""
+# Kvalita brnenia → (prah hodu, počet použití). Lepšia zbroj = nižší prah + viac použití.
+# Kľúč = podreťazec názvu. Štíty osobitne (najslabšie). Neznáme brnenie → generický tier.
+_ARMOR_QUALITY = [
+    ("prvého strážcu", 10, 7),      # legendárna — najlepšia
+    ("zlat",           11, 5),      # zlatá zbroj
+    ("rytiersk",       12, 4),
+    ("náčelník",       12, 4), ("nacelnik", 12, 4),
+    ("kožen",          12, 3), ("kozen", 12, 3),   # kožená
+    ("ľahká",          13, 3), ("lahka", 13, 3),
+]
+
+
+def _armor_quality(nazov):
+    """Vráti (prah, max_použití) pre brnenie/štít podľa názvu, alebo None ak to nie je zbroj/štít."""
+    low = (nazov or "").lower()
+    if "štít" in low or "stit" in low:
+        return (15, 2)                               # štíty — min 15, 2 použitia
+    if not any(h in low for h in ("zbroj", "brnenie", "pancier")):
+        return None
+    for kw, thr, uses in _ARMOR_QUALITY:
+        if kw in low:
+            return (thr, uses)
+    return (13, 3)                                   # generické brnenie
+
+
+def _armor_save_best(cid):
+    """Najlepší (najnižší prah) POUŽITEĽNÝ kus obrannej výbavy postavy — každý kus má
+    vlastný zostatok použití (`armorleft_{cid}_{nazov}`). Vráti (prah, názov, zostatok) alebo None."""
     ss = st.session_state
     best = None
-    sources = [it for it in ss["inventory"].get(cid, []) if isinstance(it, dict)]
-    sources += STARTING_EQUIPMENT.get(cid, [])
-    for it in sources:
-        nazov = it.get("nazov", "")
-        low = nazov.lower()
-        txt = (nazov + " " + (it.get("vyhody") or it.get("vyhoda") or "")).lower()
-        is_shield = "štít" in low or "stit" in low
-        is_armor = any(h in low for h in ("zbroj", "brnenie", "pancier"))
-        if not (is_shield or is_armor):
+    names = [it.get("nazov", "") for it in ss["inventory"].get(cid, []) if isinstance(it, dict)]
+    names += [it.get("nazov", "") for it in STARTING_EQUIPMENT.get(cid, [])]
+    seen = set()
+    for nazov in names:
+        if not nazov or nazov in seen:
             continue
-        m = re.search(r"(\d+)\s*\+?\s*zachráni", txt)
-        txt_thr = int(m.group(1)) if m else None
-        if "prvého strážcu" in low:
-            thr = 10                                   # najlepšia zbroj v hre
-        elif is_shield:
-            thr = max(15, txt_thr or 15)               # štíty — min 15
-        else:
-            thr = max(12, txt_thr or 13)               # ostatné brnenia — slabšie než Prvého strážcu
+        seen.add(nazov)
+        q = _armor_quality(nazov)
+        if not q:
+            continue
+        thr, maxu = q
+        remaining = ss.get(f"armorleft_{cid}_{nazov}", maxu)
+        if remaining <= 0:
+            continue
         if best is None or thr < best[0]:
-            best = (thr, nazov or "Zbroj")
+            best = (thr, nazov, remaining)
     return best
 
 
@@ -849,33 +869,33 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
         tryedkey = f"armortry_{ds}_{dec['id']}"
         rollkey = f"armorroll_{ds}_{dec['id']}"
         strata, elim = apply_life_loss(ds, dec, opt, res, attempt=1)
-        info = _armor_save_threshold(cid)     # (prah, názov) alebo None
         render_life_loss(strata, opt, elim)
-        # 🛡️ zbroj „zachráni život" — len vo FYZICKOM boji; samostatný hod, prah podľa zbroje,
-        #    zostatok použití (Zbroj Prvého strážcu = najlepšia → stačí 10+). 5 pokusov/kampaň.
-        if is_combat and isinstance(strata, int) and strata > 0 and info:
-            thr, nazov = info
-            leftkey = f"armorsave_left_{cid}"
-            left = ss.get(leftkey, 5)
+        # 🛡️ brnenie/štít „zachráni život" — len vo FYZICKOM boji; samostatný hod, prah aj
+        #    počet použití podľa KVALITY, KAŽDÝ KUS má vlastný zostatok (armorleft_{cid}_{názov}).
+        if is_combat and isinstance(strata, int) and strata > 0:
             if ss.get(tryedkey):                       # pokus už prebehol → výsledok
-                sroll = ss.get(rollkey, 0)
+                rr = ss.get(rollkey) or [0, 0, "Zbroj"]
+                sroll, thr_u, nazov_u = rr[0], rr[1], rr[2]
                 if ss.get(savedkey):
-                    st.success(f"🛡️ **{nazov}** — hod **{sroll}** ≥ {thr}: zachránený **1 život**!")
+                    st.success(f"🛡️ **{nazov_u}** — hod **{sroll}** ≥ {thr_u}: zachránený **1 život**!")
                 else:
-                    st.markdown(f"🛡️ {nazov} — hod **{sroll}** < {thr}: nezachránila (život ostáva stratený).")
-            elif left > 0:
-                if st.button(f"🛡️ {nazov} — hod o záchranu 1 života (treba {thr}+, zostáva {left}×)",
-                             key=f"asavebtn_{ds}_{dec['id']}"):
-                    ph = st.empty()
-                    sroll = animated_roll(ph, accent)
-                    ss[leftkey] = left - 1
-                    ss[tryedkey] = True
-                    ss[rollkey] = sroll
-                    if sroll >= thr:
-                        hp = ss["hp"][cid]
-                        hp["current"] = min(hp["max"], hp["current"] + 1)
-                        ss[savedkey] = True
-                    st.rerun()
+                    st.markdown(f"🛡️ {nazov_u} — hod **{sroll}** < {thr_u}: nezachránila (život ostáva stratený).")
+            else:
+                info = _armor_save_best(cid)           # (prah, názov, zostatok) alebo None
+                if info:
+                    thr, nazov, left = info
+                    if st.button(f"🛡️ {nazov} — hod o záchranu 1 života (treba {thr}+, zostáva {left}×)",
+                                 key=f"asavebtn_{ds}_{dec['id']}"):
+                        ph = st.empty()
+                        sroll = animated_roll(ph, accent)
+                        ss[f"armorleft_{cid}_{nazov}"] = left - 1
+                        ss[tryedkey] = True
+                        ss[rollkey] = [sroll, thr, nazov]
+                        if sroll >= thr:
+                            hp = ss["hp"][cid]
+                            hp["current"] = min(hp["max"], hp["current"] + 1)
+                            ss[savedkey] = True
+                        st.rerun()
 
     # Druhá šanca — každý neúspech (tesný aj veľký) dostane 1 pokus tou istou postavou.
     # Tesný neúspech (1–3): rovnaké DC. Neúspech 4+: DC +2. Smrť (21+) druhú šancu nedá.
