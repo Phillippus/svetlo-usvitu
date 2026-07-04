@@ -11,6 +11,7 @@ import time
 import random
 import re
 import datetime
+import urllib.parse
 
 import streamlit as st
 
@@ -71,34 +72,105 @@ KIND_COLOR = {
 # =========================================================================
 # ── Kapitolové témy pozadia (CSS gradienty — plne offline, bez obrázkov) ──
 BASE_BG = "#0e1117"
-CHAPTER_BG = {
-    0: ("🌱 Prológ — skúšobné dni",
-        "radial-gradient(ellipse at 50% 0%, #2e7d7d66, transparent 55%),"
-        "linear-gradient(180deg, #103535 0%, #0e1a1a 70%, #0e1117 100%)"),
-    1: ("🌫️ I. Volanie z hmly (hmlistý les)",
-        "radial-gradient(ellipse at 20% 0%, #4a7a5a88, transparent 60%),"
-        "radial-gradient(ellipse at 80% 15%, #3a556f66, transparent 55%),"
-        "linear-gradient(180deg, #14301e 0%, #16222e 50%, #0e1117 100%)"),
-    2: ("🏞️ II. Cesta na juh (rieky a údolia)",
-        "radial-gradient(ellipse at 75% 0%, #2470b388, transparent 55%),"
-        "radial-gradient(ellipse at 15% 30%, #2d6b5255, transparent 50%),"
-        "linear-gradient(180deg, #10284a 0%, #0e1830 55%, #0e1117 100%)"),
-    3: ("🏖️ III. Bratstvo dvoch rodov (pláž, Taliansko)",
-        "radial-gradient(ellipse at 50% 0%, #f4c43040, transparent 55%),"
-        "linear-gradient(180deg, #145a70 0%, #1a7a8c 30%, #6b552a 75%, #2a2112 100%)"),
-    4: ("🌘 IV. Návrat a tieň (súmrak)",
-        "radial-gradient(ellipse at 50% 0%, #b06a9070, transparent 55%),"
-        "radial-gradient(ellipse at 20% 60%, #4a2d5c44, transparent 50%),"
-        "linear-gradient(180deg, #2a1c40 0%, #16101f 60%, #0e1117 100%)"),
-    5: ("🏜️ V. Plamene východu (púšť)",
-        "radial-gradient(ellipse at 50% 0%, #e8621e66, transparent 50%),"
-        "radial-gradient(ellipse at 85% 25%, #f4c43038, transparent 45%),"
-        "linear-gradient(180deg, #56311a 0%, #6b4218 40%, #2a1a0e 100%)"),
-    6: ("🌌 VI. Posledná bitka o Svetlo (temná noc)",
-        "radial-gradient(ellipse at 50% 0%, #8d68c688, transparent 55%),"
-        "radial-gradient(ellipse at 50% 100%, #f4c43028, transparent 40%),"
-        "linear-gradient(180deg, #221740 0%, #120c22 60%, #0a0812 100%)"),
+
+
+# ── Kapitolové „obrázkové" pozadia — inline SVG siluety (plne offline) ──
+def _sky(cid, top, bot):
+    return (f"<defs><linearGradient id='{cid}' x1='0' y1='0' x2='0' y2='1'>"
+            f"<stop offset='0' stop-color='{top}'/><stop offset='1' stop-color='{bot}'/>"
+            f"</linearGradient></defs><rect width='1200' height='400' fill='url(#{cid})'/>")
+
+
+def _pines(y, n, w, h, fill, op):
+    s = 1200 / n
+    tris = "".join(f"<polygon points='{i*s:.0f},{y-h} {i*s-w:.0f},{y} {i*s+w:.0f},{y}'/>"
+                   for i in range(n + 1))
+    return f"<g fill='{fill}' opacity='{op}'>{tris}</g>"
+
+
+def _stars(pts, fill="#dfe6ff"):
+    return "<g fill='" + fill + "'>" + "".join(
+        f"<circle cx='{x}' cy='{y}' r='{r}'/>" for x, y, r in pts) + "</g>"
+
+
+def _wrap(inner):
+    return ("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 400' "
+            "preserveAspectRatio='xMidYMid slice'>" + inner + "</svg>")
+
+
+_SCENES = {
+    0: _wrap(_sky("k", "#12494a", "#0e1117")
+             + "<circle cx='980' cy='95' r='42' fill='#cfeaea' opacity='0.85'/>"
+             + "<rect y='255' width='1200' height='145' fill='#0b2a2b' opacity='0.55'/>"
+             + "<g stroke='#8fd0d0' stroke-width='3' opacity='0.25'>"
+               "<line x1='915' y1='275' x2='1045' y2='275'/><line x1='935' y1='305' x2='1025' y2='305'/>"
+               "<line x1='955' y1='335' x2='1005' y2='335'/></g>"),
+    1: _wrap(_sky("f", "#1c3d2b", "#0e1a14")
+             + "<rect y='150' width='1200' height='60' fill='#7fae90' opacity='0.10'/>"
+             + "<rect y='230' width='1200' height='70' fill='#7fae90' opacity='0.08'/>"
+             + _pines(300, 9, 70, 150, "#0c2419", 0.55)
+             + _pines(400, 7, 95, 210, "#081810", 0.9)),
+    2: _wrap(_sky("r", "#123a5a", "#0e1526")
+             + "<circle cx='250' cy='90' r='34' fill='#e8f0ff' opacity='0.7'/>"
+             + "<path d='M0,400 L0,270 Q300,220 600,280 T1200,250 L1200,400 Z' fill='#12314a' opacity='0.8'/>"
+             + "<path d='M0,400 L0,320 Q300,290 620,340 T1200,315 L1200,400 Z' fill='#0c2136' opacity='0.9'/>"
+             + "<path d='M540,255 Q600,320 560,400 L640,400 Q660,320 620,258 Z' fill='#3a86b8' opacity='0.55'/>"),
+    3: _wrap(_sky("b", "#1a7a8c", "#0f3a44")
+             + "<circle cx='930' cy='110' r='55' fill='#ffe08a' opacity='0.9'/>"
+             + "<circle cx='930' cy='110' r='80' fill='#ffe08a' opacity='0.18'/>"
+             + "<rect y='250' width='1200' height='70' fill='#0e5566' opacity='0.85'/>"
+             + "<g stroke='#bfe6ef' stroke-width='3' opacity='0.35'>"
+               "<line x1='60' y1='275' x2='260' y2='275'/><line x1='420' y1='290' x2='640' y2='290'/>"
+               "<line x1='760' y1='278' x2='980' y2='278'/></g>"
+             + "<path d='M0,400 L0,320 Q300,300 600,325 T1200,315 L1200,400 Z' fill='#d9b877'/>"
+             + "<g fill='#123' opacity='0.85'><rect x='150' y='210' width='10' height='130'/>"
+               "<path d='M155,210 Q90,195 70,225 Q120,210 155,225 Q120,180 155,210'/>"
+               "<path d='M155,210 Q220,195 240,225 Q190,210 155,225 Q190,180 155,210'/></g>"),
+    4: _wrap(_sky("d", "#b06a90", "#1a1024")
+             + "<circle cx='260' cy='120' r='46' fill='#ffd9c2' opacity='0.75'/>"
+             + "<path d='M0,400 L0,300 Q350,250 700,300 T1200,285 L1200,400 Z' fill='#2a1c3a' opacity='0.9'/>"
+             + "<g fill='#140c1e' opacity='0.95'><rect x='860' y='210' width='9' height='190'/>"
+               "<path d='M864,215 C820,190 800,200 780,175 M864,220 C910,195 930,205 950,180 "
+               "M864,250 C825,235 810,245 792,230 M864,255 C905,240 922,248 940,235' "
+               "stroke='#140c1e' stroke-width='6' fill='none'/></g>"),
+    5: _wrap(_sky("s", "#e8621e", "#3a1f0e")
+             + "<circle cx='600' cy='150' r='75' fill='#ffd25a' opacity='0.95'/>"
+             + "<circle cx='600' cy='150' r='120' fill='#ffb347' opacity='0.20'/>"
+             + "<path d='M0,400 L0,300 Q250,255 500,300 T1200,290 L1200,400 Z' fill='#c47a2a' opacity='0.9'/>"
+             + "<path d='M0,400 L0,345 Q300,310 650,350 T1200,335 L1200,400 Z' fill='#8a4f18'/>"
+             + "<g fill='#2a1608' opacity='0.9'><rect x='980' y='250' width='18' height='95'/>"
+               "<path d='M989,285 q-40,-5 -40,-45 q0,30 40,30 Z'/>"
+               "<path d='M989,300 q42,-5 42,-48 q0,32 -42,32 Z'/></g>"),
+    6: _wrap(_sky("n", "#241a44", "#0a0812")
+             + _stars([(120, 70, 2), (300, 50, 1.5), (480, 90, 2), (700, 60, 1.5), (860, 100, 2),
+                       (1040, 70, 1.5), (200, 130, 1.5), (620, 130, 1.5), (960, 45, 2), (400, 140, 1.5)])
+             + "<circle cx='250' cy='95' r='40' fill='#e6e0ff' opacity='0.85'/>"
+             + "<circle cx='236' cy='88' r='40' fill='#241a44' opacity='0.9'/>"
+             + "<g fill='#0d0a18'><rect x='430' y='230' width='340' height='170'/>"
+               "<rect x='470' y='180' width='60' height='220'/><rect x='670' y='180' width='60' height='220'/>"
+               "<rect x='560' y='150' width='80' height='250'/>"
+               "<g>" + "".join(f"<rect x='{x}' y='215' width='18' height='22'/>" for x in range(440, 760, 40)) + "</g>"
+               "<polygon points='590,150 600,120 610,150'/></g>"),
 }
+
+# štítky do prepínača
+CHAPTER_BG = {
+    0: "🌱 Prológ — pokojná noc", 1: "🌫️ I. Volanie z hmly (hmlistý les)",
+    2: "🏞️ II. Cesta na juh (rieky)", 3: "🏖️ III. Bratstvo (pláž, Taliansko)",
+    4: "🌘 IV. Návrat a tieň (súmrak)", 5: "🏜️ V. Plamene východu (púšť)",
+    6: "🌌 VI. Posledná bitka (nočný hrad)",
+}
+
+
+def _scene_bg(ch):
+    """Zloží CSS pozadie: SVG scéna hore + tmavý prekryv (kvôli čitateľnosti) + základ."""
+    svg = _SCENES.get(ch)
+    if not svg:
+        return None
+    url = 'url("data:image/svg+xml,' + urllib.parse.quote(svg) + '")'
+    overlay = ("linear-gradient(180deg, rgba(14,17,23,0.42) 0%, rgba(14,17,23,0.60) 35%,"
+               " rgba(14,17,23,0.93) 62%, #0e1117 80%)")
+    return f"{overlay}, {url} top center / 100% auto no-repeat, {BASE_BG}"
 
 
 def theme_bg(entry0):
@@ -108,8 +180,8 @@ def theme_bg(entry0):
         return None
     if choice == "auto":
         ch = entry0.get("chapter") if entry0 else None
-        return CHAPTER_BG.get(ch, (None, None))[1] if ch is not None else None
-    return CHAPTER_BG.get(choice, (None, None))[1]
+        return _scene_bg(ch) if ch is not None else None
+    return _scene_bg(choice)
 
 
 def inject_css(accent, bg=None):
@@ -2051,7 +2123,7 @@ def main():
 
     with top[1]:
         _theme_lbl = {"auto": "✨ Automatické (podľa kapitoly)", "zakladne": "⬛ Základné"}
-        _theme_lbl.update({k: v[0] for k, v in CHAPTER_BG.items()})
+        _theme_lbl.update(CHAPTER_BG)
         st.selectbox("🎨 Pozadie", ["auto", "zakladne"] + list(CHAPTER_BG.keys()),
                      format_func=lambda v: _theme_lbl[v], key="theme_sel")
 
