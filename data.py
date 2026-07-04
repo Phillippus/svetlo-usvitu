@@ -399,9 +399,9 @@ STARTING_EQUIPMENT = {
 LEGENDARY_ITEMS = [
     {"nazov": "Pečať Sivomila",       "nositel": "Ktokoľvek",         "vyhody": "1× za kampaň automatický úspech",                  "nevyhody": "Po použití navždy zmizne",            "den": 34},
     {"nazov": "Prísaha Železného Dubu","nositel": "Bojovník",          "vyhody": "+3 ku všetkým hodom v záverečnej bitke",           "nevyhody": "−3 k hodu ak útočí prvý bez provokácie","den": 36},
-    {"nazov": "Plášť hviezd",         "nositel": "Vedma / Kúzelník",  "vyhody": "+2 ku všetkým atribútom",                          "nevyhody": "−3 Výdrž",                            "den": 50},
-    {"nazov": "Luk Hviezdneho vetra", "nositel": "Elf",              "vyhody": "+4 Obratnosť, +2 Šťastie, pri hode 15+ šíp nikdy neminie","nevyhody": "−2 Sila, žiara tetivy v noci prezradí polohu","den": 47},
-    {"nazov": "Zbroj Prvého strážcu", "nositel": "Bojovník",          "vyhody": "+5 Výdrž, pri hode 10+ zachráni život, +2 Sila",   "nevyhody": "−3 Obratnosť, −1 Šťastie",            "den": 21},
+    {"nazov": "Plášť hviezd",         "nositel": "Vedma / Kúzelník",  "vyhody": "+2 ku všetkým atribútom · 🌌 Hviezdny závoj (2× za hru): družina +2 a nikto pod 10 (dnes)","nevyhody": "−3 Výdrž",                            "den": 50},
+    {"nazov": "Luk Hviezdneho vetra", "nositel": "Elf",              "vyhody": "+4 Obratnosť, +2 Šťastie, pri hode 15+ šíp nikdy neminie · 🏹 Hviezdny vietor (3× za hru): ďalší hod s výhodou","nevyhody": "−2 Sila, žiara tetivy v noci prezradí polohu","den": 47},
+    {"nazov": "Zbroj Prvého strážcu", "nositel": "Bojovník",          "vyhody": "+5 Výdrž, pri hode 10+ zachráni život, +2 Sila · 🛡️ Výzva strážcu (2× za hru): Bojovník +4 a družina +1 (dnes)","nevyhody": "−3 Obratnosť, −1 Šťastie",            "den": 21},
     {"nazov": "Runový kameň Úsvitu",  "nositel": "Bojovník",          "vyhody": "+3 Sila, +2 Obratnosť, pri hode 18+ automatický zásah","nevyhody": "−2 Výdrž za každý Žiarivý úder",       "den": 57},
     {"nazov": "Úlomky Svetla Úsvitu", "nositel": "Celá družina",      "vyhody": "+5 Mágia všetkým v záverečnej bitke",              "nevyhody": "Nedá sa rozdeliť",                    "den": None},
 ]
@@ -5767,6 +5767,10 @@ def _c(typ, hodnota, popis, pocet):
 CONSUMABLE_EFFECTS = {
     # — legendárne aktívne schopnosti —
     "pečať sivomila":   _c("auto_uspech", 0, "1× automatický úspech na jedno rozhodnutie (potom zmizne)", 1),
+    # legendárne predmety s TRVALÝM efektom + tlačidlom na pár použití za hru (viď LEGENDARY_ACTIVE)
+    "plášť hviezd":     _c("hviezdny_zavoj", 2, "Hviezdny závoj: celá družina +2 ku hodom a nikto pod 10 (dnes)", 2),
+    "zbroj prvého strážcu": _c("vyzva_strazcu", 4, "Výzva strážcu: Bojovník +4 a družina +1 ku hodom (dnes)", 2),
+    "luk hviezdneho vetra": _c("vyhoda_hodu", 0, "Hviezdny vietor: ďalší hod tejto postavy je s výhodou (2 kocky, vyššia)", 3),
     # — liečenie / oddych —
     "medovník":         _c("hod_bonus_zajtra", 1, "+1 ku všetkým hodom zajtra", 1),
     "zásoby jedla":     _c("heal", 1, "+1 život (jedlo počas oddychu)", 3),
@@ -5816,6 +5820,11 @@ CONSUMABLE_EFFECTS = {
     "žiarivý kamienok": _c("hod_bonus_dnes", 1, "+1 k hodom dnes (svetlo z brány)", 2),
     "žiarivý list":     _c("hod_bonus_dnes", 1, "+1 k hodom dnes (svetlo hája)", 2),
 }
+
+
+# Legendárne predmety s aktívnym tlačidlom, ktoré ostávajú v inventári aj po vyčerpaní
+# nábojov (trvalý pasívny efekt) — kľúč = podreťazec názvu (malými písmenami).
+LEGENDARY_ACTIVE = ("plášť hviezd", "zbroj prvého strážcu", "luk hviezdneho vetra")
 
 
 def _consumable_for(nazov):
@@ -5872,6 +5881,7 @@ def normalize_item(raw):
         "cena": raw.get("cena", 0),
         "pouzitie": pouzitie,
         "pocet_pouziti": pocet,
+        "trvaly": raw.get("trvaly", any(k in nazov.lower() for k in LEGENDARY_ACTIVE)),
     }
 
 

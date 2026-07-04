@@ -862,6 +862,11 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
             elif mech in ("spoj_hody_vsetci", "spoj_hody_dvaja"):
                 return render_spoj_decision(n, ds, dec, accent, entry, pend)
 
+        # ── Hviezdny vietor (výhoda) — hod danej postavy sa hodí dvakrát, počíta vyššia ──
+        if pend and not positive and pend.get("mechanika") == "vyhoda_hodu":
+            st.info(f"🏹 **{pend['nazov']}** pripravený — hod postavy "
+                    f"{short_name(pend['postava'])} bude s výhodou (2 kocky, počíta sa vyššia).")
+
         # ── normálne možnosti (s prípadným znížením DC + skrytou možnosťou D) ──
         opts = list(dec["options"])
         if active_od:
@@ -876,9 +881,17 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
                 st.caption(f"☠️ {opt['postava_nazov']} je eliminovaný/á — túto možnosť teraz nemôže hrať.")
             if st.button(f"🎲 {opt['postava_ikona']} {opt['postava_nazov']} — hodiť kockou",
                          key=f"btn_{ds}_{dec['id']}_{idx}", disabled=eliminovana):
+                adv = (pend and pend.get("mechanika") == "vyhoda_hodu"
+                       and pend.get("postava") == opt["postava_id"])
                 ph = st.empty()
                 roll = animated_roll(ph, accent)
-                res = evaluate(opt_disp, roll, opt["postava_id"], is_combat, ds)
+                if adv:                        # Hviezdny vietor — druhá kocka, počíta sa vyššia
+                    roll2 = animated_roll(ph, accent)
+                    res = evaluate(opt_disp, max(roll, roll2), opt["postava_id"], is_combat, ds)
+                    res["adv"] = [roll, roll2]
+                    ss.pop("pending_ability", None)
+                else:
+                    res = evaluate(opt_disp, roll, opt["postava_id"], is_combat, ds)
                 res["idx"] = idx
                 res["opt"] = opt_disp          # snapshot pre zobrazenie (aj pri generovanej D)
                 ss[reskey] = res
@@ -898,6 +911,9 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
         st.success(f"✅ Automatický úspech — {res.get('auto_note', 'špeciálna schopnosť')} "
                    f"({'preskočené' if res.get('skipped') else 'bez hodu'}).")
     render_calc(res)
+    if res.get("adv"):
+        a, b = res["adv"]
+        st.caption(f"🏹 Výhoda (Hviezdny vietor): hody **{a}** a **{b}** → počíta sa **{max(a, b)}**.")
     if res.get("spoj"):
         lines = " + ".join(f"{PARTY_ALL[c]['icon']}{short_name(c)} ({roll}+{hv} {atr_name(hk)})"
                            for c, roll, hv, hk in res["spoj_rolls"])
@@ -1541,6 +1557,27 @@ def use_consumable(cid, item):
         ss["pending_ability"] = {"mechanika": "auto_uspech", "nazov": item["nazov"],
                                  "postava": cid, "ds": dnes, "hodnota": 0}
         msg = f"⭐ {item['nazov']} pripravená — v ďalšom rozhodnutí potvrď automatický úspech."
+    elif typ == "hviezdny_zavoj":
+        sel = ss.get("sel_date")
+        dnes = sel.isoformat() if hasattr(sel, "isoformat") else datetime.date.today().isoformat()
+        ss["temp_bonusy"].setdefault(dnes, []).append(
+            {"postava": "all", "atribut": "all", "hodnota": val or 2, "zdroj": item["nazov"]})
+        ss[f"stastna_kocka_{dnes}"] = True
+        msg = f"🌌 {item['nazov']}: celá družina +{val or 2} ku hodom dnes a žiaden hod pod 10."
+    elif typ == "vyzva_strazcu":
+        sel = ss.get("sel_date")
+        dnes = sel.isoformat() if hasattr(sel, "isoformat") else datetime.date.today().isoformat()
+        ss["temp_bonusy"].setdefault(dnes, []).append(
+            {"postava": cid, "atribut": "all", "hodnota": val or 4, "zdroj": item["nazov"]})
+        ss["temp_bonusy"].setdefault(dnes, []).append(
+            {"postava": "all", "atribut": "all", "hodnota": 1, "zdroj": f"{item['nazov']} (družina)"})
+        msg = f"🛡️ {item['nazov']}: {short_name(cid)} +{val or 4} a celá družina +1 ku hodom dnes."
+    elif typ == "vyhoda_hodu":
+        sel = ss.get("sel_date")
+        dnes = sel.isoformat() if hasattr(sel, "isoformat") else datetime.date.today().isoformat()
+        ss["pending_ability"] = {"mechanika": "vyhoda_hodu", "nazov": item["nazov"],
+                                 "postava": cid, "ds": dnes, "hodnota": 0}
+        msg = f"🏹 {item['nazov']} pripravený — ďalší hod {short_name(cid)} je s výhodou (2 kocky, vyššia)."
     else:
         msg = "Predmet použitý."
     left = (item.get("pocet_pouziti") or 1) - 1
@@ -1672,7 +1709,7 @@ def render_char_card(cid, entry, accent):
             if pouzitie and not pasivny and (pocet or 0) > 0:
                 if st.button(f"✅ Použiť — {pouzitie.get('popis','')}", key=f"use_{cid}_{i}"):
                     msg, minulo = use_consumable(cid, item)
-                    if minulo:
+                    if minulo and not item.get("trvaly"):
                         inv.pop(i)
                     st.toast(msg, icon="✨")
                     st.rerun()
