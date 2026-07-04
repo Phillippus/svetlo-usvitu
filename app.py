@@ -423,33 +423,31 @@ def apply_life_loss(ds, dec, opt, res, attempt):
     return strata, hp["current"] <= 0
 
 
-# Známe zbroje so „zachráni život" (fallback podľa názvu, keby chýbal popisný text)
-_SAVE_ARMOR_NAMES = {
-    "zbroj prvého strážcu": 10, "rytierska zbroj": 12, "zbroj náčelníka": 11,
-    "ľahká bojová zbroj": 12, "ťažká kožená zbroj": 10,
-}
-
-
 def _armor_save_threshold(cid):
-    """Najnižší prah zbroje typu „pri hode X+ zachráni život" z výbavy postavy
-    (inventár + štartová výbava). Vráti (prah, názov) alebo None."""
+    """Prah záchrany života z brnenia/štítu vo výbave postavy (inventár + štartová).
+    Tierovanie: Zbroj Prvého strážcu = 10 (najlepšia) · ostatné brnenia ≥12 ·
+    štíty ≥15. Vráti (prah, názov) najlepšej (najnižší prah) alebo None."""
     ss = st.session_state
     best = None
     sources = [it for it in ss["inventory"].get(cid, []) if isinstance(it, dict)]
     sources += STARTING_EQUIPMENT.get(cid, [])
     for it in sources:
         nazov = it.get("nazov", "")
+        low = nazov.lower()
         txt = (nazov + " " + (it.get("vyhody") or it.get("vyhoda") or "")).lower()
-        thr = None
-        if "zachráni" in txt and "život" in txt:      # podľa popisu „…X+ zachráni život"
-            m = re.search(r"(\d+)\s*\+?\s*zachráni", txt)
-            thr = int(m.group(1)) if m else 10
-        else:                                         # fallback podľa názvu zbroje
-            for kw, t in _SAVE_ARMOR_NAMES.items():
-                if kw in nazov.lower():
-                    thr = t
-                    break
-        if thr is not None and (best is None or thr < best[0]):
+        is_shield = "štít" in low or "stit" in low
+        is_armor = any(h in low for h in ("zbroj", "brnenie", "pancier"))
+        if not (is_shield or is_armor):
+            continue
+        m = re.search(r"(\d+)\s*\+?\s*zachráni", txt)
+        txt_thr = int(m.group(1)) if m else None
+        if "prvého strážcu" in low:
+            thr = 10                                   # najlepšia zbroj v hre
+        elif is_shield:
+            thr = max(15, txt_thr or 15)               # štíty — min 15
+        else:
+            thr = max(12, txt_thr or 13)               # ostatné brnenia — slabšie než Prvého strážcu
+        if best is None or thr < best[0]:
             best = (thr, nazov or "Zbroj")
     return best
 
