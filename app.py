@@ -301,7 +301,7 @@ PROGRESS_PREFIXES = ("res_", "res2_", "crit1_", "zloss_", "tcrit_", "tloss_", "a
                      "armorsaved_", "armortry_", "armorroll_", "regen_done_", "regen_zone_",
                      "predmet_done_", "nakup_done_", "levelup20_", "balloons_", "zlato_done_",
                      "orb_used_", "stastna_kocka_", "dvojita_odmena_", "bojovnik_hranica_",
-                     "skip_", "skryta_den_", "absorb_", "guard_shield_")
+                     "skip_", "skryta_den_", "prehp_", "guardsaved_")
 
 
 def serialize_state():
@@ -514,20 +514,12 @@ def apply_life_loss(ds, dec, opt, res, attempt):
     strata = zivoty_za_rozdiel(-res["diff"])
     cid = opt["postava_id"]
     hp = ss["hp"][cid]
-    akey = f"{ds}_{dec['id']}_{attempt}"
-    if ss.get(f"absorb_{akey}") == "guard":        # už pohltené Štítom Prvého strážcu
-        return "guard", hp["current"] <= 0
     if strata == 0:
         return 0, hp["current"] <= 0
     lkey = f"zloss_{ds}_{dec['id']}_{attempt}"
     if ss.get(lkey):
         return strata, hp["current"] <= 0
-    # 🛡️ Štít Prvého strážcu — úplná ochrana pred stratou (aj smrťou); pohltí jeden zásah
-    if ss.get(f"guard_shield_{cid}"):
-        ss.pop(f"guard_shield_{cid}", None)
-        ss[f"absorb_{akey}"] = "guard"
-        ss[lkey] = True
-        return "guard", hp["current"] <= 0
+    ss[f"prehp_{ds}_{dec['id']}_{attempt}"] = hp["current"]   # HP pred zásahom (pre Štít Prvého strážcu)
     hp["current"] = 0 if strata == "smrt" else max(0, hp["current"] - strata)
     ss[lkey] = True
     return strata, hp["current"] <= 0
@@ -582,12 +574,21 @@ def _armor_save_best(cid):
     return best
 
 
+def _guard_saver(entry):
+    """Nájde nositeľa Zbroje Prvého strážcu (schopnosť plna_ochrana) s aspoň 1 nábojom.
+    Vráti (cid_nositeľa, item, zostatok) alebo None."""
+    ss = st.session_state
+    for c in active_ids(entry):
+        for it in ss["inventory"].get(c, []):
+            if not isinstance(it, dict):
+                continue
+            if (it.get("pouzitie") or {}).get("typ") == "plna_ochrana" and (it.get("pocet_pouziti") or 0) > 0:
+                return c, it, it["pocet_pouziti"]
+    return None
+
+
 def render_life_loss(strata, opt, eliminated):
     """Zobrazí hlášku o strate životov / eliminácii."""
-    if strata == "guard":
-        st.info(f"🛡️ **Štít Prvého strážcu** pohltil celý zásah — "
-                f"{opt['postava_nazov']} nestráca žiaden život!")
-        return
     if strata == "smrt":
         st.error(f"💀 Smrteľný neúspech — {opt['postava_nazov']} je **ELIMINOVANÝ/Á**!")
     elif strata:
@@ -975,18 +976,12 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
     # Hod 1 — kritický neúspech: −1 život navyše (raz). Šťastná kocka / Prorocká vízia to rušia.
     if real and res["roll"] == 1 and res.get("roll_eff", 1) == 1 and not positive:
         critkey = f"crit1_{ds}_{dec['id']}"
-        cid_c = opt["postava_id"]
-        hp = ss["hp"][cid_c]
-        # 🛡️ Štít Prvého strážcu — úplná ochrana pohltí aj tento −1 (armed alebo už pohltil hlavný zásah)
-        shielded = ss.get(f"guard_shield_{cid_c}") or ss.get(f"absorb_{ds}_{dec['id']}_1") == "guard"
-        if shielded:
-            st.caption(f"🛡️ Štít Prvého strážcu pohltil aj kritický neúspech — {opt['postava_nazov']} bez −1.")
-        else:
-            if not ss.get(critkey):
-                hp["current"] = max(0, hp["current"] - 1)
-                ss[critkey] = True
-            chvost = " — **ELIMINOVANÝ/Á** ☠️" if hp["current"] <= 0 else ""
-            st.caption(f"💀 Kritický neúspech (hod 1): {opt['postava_nazov']} −1 život navyše{chvost}.")
+        hp = ss["hp"][opt["postava_id"]]
+        if not ss.get(critkey):
+            hp["current"] = max(0, hp["current"] - 1)
+            ss[critkey] = True
+        chvost = " — **ELIMINOVANÝ/Á** ☠️" if hp["current"] <= 0 else ""
+        st.caption(f"💀 Kritický neúspech (hod 1): {opt['postava_nazov']} −1 život navyše{chvost}.")
 
     # Levelup pri hode 20 (max 1× za deň na postavu)
     if real and res["roll"] == 20:
@@ -1053,21 +1048,44 @@ def render_skill_decision(n, ds, dec, accent, entry, positive=False):
                             ss[savedkey] = True
                         st.rerun()
 
+        # 🛡️ Štít Prvého strážcu — REAKTÍVNA úplná záchrana: zruší celý tento zásah (aj smrť),
+        #    funguje aj mimo fyzického boja; čerpá z nábojov Zbroje ktoréhokoľvek nositeľa v družine.
+        if strata == "smrt" or (isinstance(strata, int) and strata > 0):
+            gkey = f"guardsaved_{ds}_{dec['id']}"
+            if ss.get(gkey):
+                st.success(f"🛡️ **Štít Prvého strážcu** už úplne zachránil {opt['postava_nazov']} "
+                           f"(zásah zrušený).")
+            else:
+                saver = _guard_saver(entry)
+                if saver:
+                    scid, gitem, left = saver
+                    nm = "" if scid == cid else f" ({short_name(scid)})"
+                    if st.button(f"🛡️ Štít Prvého strážcu{nm} — úplne zachrániť {opt['postava_nazov']} "
+                                 f"(zostáva {left}×)", key=f"guardbtn_{ds}_{dec['id']}"):
+                        prehp = ss.get(f"prehp_{ds}_{dec['id']}_1", ss["hp"][cid]["max"])
+                        if ss.get(f"crit1_{ds}_{dec['id']}"):     # vráť aj −1 za hod 1
+                            prehp = min(ss["hp"][cid]["max"], prehp + 1)
+                        ss["hp"][cid]["current"] = prehp
+                        gitem["pocet_pouziti"] = left - 1
+                        ss[gkey] = True
+                        st.rerun()
+
     # Druhá šanca — každý neúspech (tesný aj veľký) dostane 1 pokus tou istou postavou.
     # Tesný neúspech (1–3): rovnaké DC. Neúspech 4+: DC +2. Smrť (21+) druhú šancu nedá.
     if real and res["outcome"] in ("near", "fail") and not positive and not res.get("is_second"):
         smrtelny = res["outcome"] == "fail" and zivoty_za_rozdiel(-res["diff"]) == "smrt"
-        if smrtelny or ss["hp"][opt["postava_id"]]["current"] <= 0:
+        zachraneny = ss.get(f"guardsaved_{ds}_{dec['id']}")     # Štít Prvého strážcu zrušil zásah
+        if (smrtelny or ss["hp"][opt["postava_id"]]["current"] <= 0) and not zachraneny:
             st.info("☠️ Postava je eliminovaná — družina pokračuje ďalej.")
-        else:
+        elif not smrtelny:
             render_second_chance(n, ds, dec, accent, entry, opt, res)
 
     if st.button(f"↩️ Znova rozhodnutie {n}", key=f"reset_{ds}_{dec['id']}"):
         for k in (reskey, f"res2_{ds}_{dec['id']}", f"crit1_{ds}_{dec['id']}",
                   f"zloss_{ds}_{dec['id']}_1", f"zloss_{ds}_{dec['id']}_2",
                   f"armorsaved_{ds}_{dec['id']}", f"armortry_{ds}_{dec['id']}",
-                  f"armorroll_{ds}_{dec['id']}",
-                  f"absorb_{ds}_{dec['id']}_1", f"absorb_{ds}_{dec['id']}_2"):
+                  f"armorroll_{ds}_{dec['id']}", f"guardsaved_{ds}_{dec['id']}",
+                  f"prehp_{ds}_{dec['id']}_1", f"prehp_{ds}_{dec['id']}_2"):
             ss.pop(k, None)
         st.rerun()
     return True
@@ -1608,10 +1626,6 @@ def use_consumable(cid, item, target=None):
                                  "postava": tgt, "ds": dnes, "hodnota": 0}
         msg = (f"🌌 {item['nazov']} pripravený — ak ďalší hod {short_name(tgt)} padne 15+, "
                f"ráta sa ako kritický úspech (20).")
-    elif typ == "plna_ochrana":
-        ss[f"guard_shield_{tgt}"] = True
-        msg = (f"🛡️ {item['nazov']}: {short_name(tgt)} je pod úplnou ochranou — ďalšia strata "
-               f"života (aj smrteľná) sa nezapočíta.")
     elif typ == "vyhoda_hodu":
         sel = ss.get("sel_date")
         dnes = sel.isoformat() if hasattr(sel, "isoformat") else datetime.date.today().isoformat()
@@ -1745,9 +1759,14 @@ def render_char_card(cid, entry, accent):
             ic[0].markdown(f"- {name}{eff}", unsafe_allow_html=True)
             if ic[1].button("✖", key=f"rm_{cid}_{i}", help="Vyhodiť predmet"):
                 inv.pop(i); st.rerun()
-            # aktívne spotrebné majú tlačidlo Použiť; pasívne (regen_bonus) sa aplikujú pri nocľahu
-            if pouzitie and not pasivny and (pocet or 0) > 0:
-                cielene = pouzitie.get("typ") in ("plna_ochrana", "priazen_hviezd")
+            # Štít Prvého strážcu (plna_ochrana) sa NEpoužíva tlačidlom — je to reaktívna záchrana,
+            # ktorá sa ponúkne priamo v rozhodnutí pri strate života. Tu len info.
+            if pouzitie and pouzitie.get("typ") == "plna_ochrana" and (pocet or 0) > 0:
+                st.caption("🛡️ Aktivuje sa ako záchrana priamo v rozhodnutí, keď niekto stráca život "
+                           f"(zostáva {pocet}×).")
+            # ostatné aktívne spotrebné majú tlačidlo Použiť; pasívne (regen_bonus) sa aplikujú pri nocľahu
+            elif pouzitie and not pasivny and (pocet or 0) > 0:
+                cielene = pouzitie.get("typ") == "priazen_hviezd"
                 tgt = cid
                 if cielene:
                     ciele = active_ids(entry)
