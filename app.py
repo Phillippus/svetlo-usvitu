@@ -153,14 +153,34 @@ _SCENES = {
              + "<circle cx='250' cy='92' r='52' fill='#e05bc0' opacity='0.35'/>"
              + "<circle cx='250' cy='92' r='44' fill='#d94a8a'/>"
              + "<circle cx='250' cy='92' r='44' fill='#7a1250' opacity='0.35'/>"
-             + "<g fill='#0c0418'><rect x='430' y='228' width='340' height='172'/>"
-               "<rect x='465' y='172' width='62' height='228'/><rect x='673' y='172' width='62' height='228'/>"
-               "<rect x='558' y='138' width='84' height='262'/>"
-               "<polygon points='496,172 496,138 526,172'/><polygon points='704,172 704,138 734,172'/>"
-               "<g>" + "".join(f"<rect x='{x}' y='212' width='18' height='24'/>" for x in range(438, 762, 40)) + "</g>"
-               "</g>"
-             + "<g fill='#e05be8'><rect x='486' y='250' width='15' height='26'/><rect x='701' y='250' width='15' height='26'/>"
-               "<rect x='592' y='205' width='16' height='30'/></g>"),
+             + "<ellipse cx='600' cy='214' rx='220' ry='190' fill='#8a2fb0' opacity='0.20'/>"
+             + "<g fill='#0a0413'>"
+               "<rect x='430' y='262' width='340' height='138'/>"
+               "<rect x='392' y='214' width='54' height='186'/><rect x='754' y='214' width='54' height='186'/>"
+               "<polygon points='413,204 425,204 419,182'/><polygon points='775,204 787,204 781,182'/>"
+               "<rect x='474' y='190' width='46' height='210'/><polygon points='470,192 524,192 497,110'/>"
+               "<rect x='680' y='190' width='46' height='210'/><polygon points='676,192 730,192 703,110'/>"
+               "<rect x='532' y='176' width='10' height='224'/><polygon points='528,178 546,178 537,118'/>"
+               "<rect x='658' y='176' width='10' height='224'/><polygon points='654,178 672,178 663,118'/>"
+               "<rect x='558' y='168' width='84' height='232'/><polygon points='552,170 648,170 600,62'/>"
+               "<rect x='597' y='36' width='6' height='30'/>"
+             + "".join(f"<rect x='{x}' y='250' width='16' height='14'/>" for x in range(436, 760, 40))
+             + "".join(f"<rect x='{x}' y='204' width='12' height='12'/>" for x in (394, 431, 756, 793))
+             + "</g>"
+             + "<polygon points='603,40 634,49 603,60' fill='#b3243f'/>"
+             + "<path d='M582,400 L582,344 Q600,318 618,344 L618,400 Z' fill='#3a0a16'/>"
+             + "<path d='M591,400 L591,352 Q600,335 609,352 L609,400 Z' fill='#ff3350' opacity='0.5'/>"
+             + "<g fill='#ff2e5f'>"
+               "<ellipse cx='600' cy='214' rx='17' ry='24' opacity='0.30'/>"
+               "<path d='M592,232 L592,212 Q600,197 608,212 L608,232 Z'/>"
+               "<rect x='494' y='214' width='6' height='22'/><rect x='703' y='214' width='6' height='22'/>"
+               "<rect x='414' y='252' width='6' height='18'/><rect x='781' y='252' width='6' height='18'/>"
+             + "".join(f"<rect x='{x}' y='252' width='5' height='16'/>" for x in (570, 584, 616, 630))
+             + "</g>"
+             + "<g fill='#e468f0'>"
+               "<rect x='533' y='210' width='8' height='18'/><rect x='659' y='210' width='8' height='18'/>"
+               "<rect x='494' y='250' width='5' height='16'/><rect x='703' y='250' width='5' height='16'/>"
+               "<rect x='566' y='300' width='6' height='20'/><rect x='628' y='300' width='6' height='20'/></g>"),
 }
 
 # štítky do prepínača
