@@ -112,12 +112,30 @@ _SCENES = {
              + "<rect y='226' width='1200' height='80' fill='#aadcbc' opacity='0.12'/>"
              + _pines(300, 9, 70, 150, "#174433", 0.6)
              + _pines(400, 7, 95, 210, "#0e2c1e", 0.92)),
-    2: _wrap(_sky("r", "#1d5a86", "#122438")
-             + "<circle cx='250' cy='90' r='38' fill='#f2f7ff' opacity='0.85'/>"
-             + "<circle cx='250' cy='90' r='60' fill='#dfeeff' opacity='0.18'/>"
-             + "<path d='M0,400 L0,270 Q300,220 600,280 T1200,250 L1200,400 Z' fill='#1a4a6a' opacity='0.85'/>"
-             + "<path d='M0,400 L0,320 Q300,290 620,340 T1200,315 L1200,400 Z' fill='#123650' opacity='0.92'/>"
-             + "<path d='M540,255 Q600,320 560,400 L640,400 Q660,320 620,258 Z' fill='#5aa6d8' opacity='0.6'/>"),
+    2: _wrap(_sky("r", "#5b9fd4", "#bcdcea")
+             + "<circle cx='945' cy='90' r='78' fill='#fff0b0' opacity='0.28'/>"
+             + "<circle cx='945' cy='90' r='44' fill='#fff2c0'/>"
+             + "<g fill='#eaf4fb' opacity='0.85'>"
+               "<ellipse cx='230' cy='70' rx='52' ry='16'/><ellipse cx='300' cy='78' rx='40' ry='13'/>"
+               "<ellipse cx='620' cy='55' rx='44' ry='13'/><ellipse cx='780' cy='120' rx='36' ry='11'/></g>"
+             + "<g fill='none' stroke='#3a556a' stroke-width='2' opacity='0.55'>"
+               "<path d='M410,96 q7,-6 14,0 q7,-6 14,0'/><path d='M472,82 q6,-5 12,0 q6,-5 12,0'/></g>"
+             + "<path d='M0,205 Q220,182 460,200 Q720,182 980,200 Q1100,192 1200,203 L1200,250 L0,250 Z' fill='#8fb4c9' opacity='0.65'/>"
+             + "<path d='M0,400 L0,236 Q300,214 600,244 Q900,214 1200,236 L1200,400 Z' fill='#5b9070'/>"
+             + "<path d='M0,400 L0,300 Q320,272 640,312 Q920,286 1200,306 L1200,400 Z' fill='#457a5a' opacity='0.9'/>"
+             + "<path d='M598,238 C560,300 560,340 508,400 L692,400 C640,340 640,300 602,238 Z' fill='#a6d2e8'/>"
+             + "<path d='M602,244 C580,304 580,344 566,400 L582,400 C596,344 596,304 606,244 Z' fill='#d9eff8' opacity='0.55'/>"
+             + "<g fill='#eaf6fc' opacity='0.6'>"
+               "<ellipse cx='560' cy='360' rx='20' ry='2.5'/><ellipse cx='592' cy='330' rx='15' ry='2'/>"
+               "<ellipse cx='548' cy='388' rx='24' ry='3'/><ellipse cx='602' cy='300' rx='11' ry='1.8'/></g>"
+             + "<path d='M556,300 Q600,274 644,300' fill='none' stroke='#b8a586' stroke-width='6'/>"
+             + "<rect x='552' y='287' width='96' height='9' rx='2' fill='#c6b493'/>"
+             + "<rect x='554' y='279' width='5' height='9' fill='#c6b493'/><rect x='641' y='279' width='5' height='9' fill='#c6b493'/>"
+             + "<g fill='#2c3a24'><rect x='147' y='272' width='6' height='18'/><rect x='327' y='290' width='5' height='14'/>"
+               "<rect x='1047' y='272' width='6' height='18'/><rect x='877' y='290' width='5' height='14'/></g>"
+             + "<g fill='#39694f'>"
+               "<circle cx='150' cy='250' r='26'/><circle cx='330' cy='272' r='20'/><circle cx='450' cy='288' r='15'/>"
+               "<circle cx='1050' cy='250' r='26'/><circle cx='880' cy='272' r='20'/><circle cx='760' cy='288' r='15'/></g>"),
     3: _wrap(_sky("b", "#33cfe6", "#1596b0")
              + "<circle cx='930' cy='105' r='60' fill='#fff4a8'/>"
              + "<circle cx='930' cy='105' r='100' fill='#fff29a' opacity='0.28'/>"
@@ -195,6 +213,7 @@ CHAPTER_BG = {
 # Sila prekryvu nad scénou (kvôli čitateľnosti). Veselé kapitoly (pláž, púšť) = jemnejší
 # → jasnejšie farby; VI = tmavší s červeným nádychom → zlovestnejšie.
 _OVERLAY = {
+    2: "rgba(12,22,34,0.10) 0%, rgba(12,22,34,0.32) 45%, rgba(12,22,34,0.56) 72%",
     3: "rgba(40,30,12,0.12) 0%, rgba(40,30,12,0.34) 45%, rgba(40,30,12,0.56) 72%",
     5: "rgba(45,28,8,0.12) 0%, rgba(45,28,8,0.34) 45%, rgba(45,28,8,0.56) 72%",
     6: "rgba(45,15,70,0.22) 0%, rgba(30,10,50,0.46) 42%, rgba(18,8,32,0.7) 72%",
@@ -203,7 +222,7 @@ _OVERLAY_DEFAULT = "rgba(10,12,18,0.14) 0%, rgba(10,12,18,0.38) 45%, rgba(10,12,
 
 # Ladiaca farba kapitoly — vyplni plochu pod scenou (namiesto ciernej) a zjednoti vzhlad.
 _BASE = {
-    0: "#102f31", 1: "#0d1f18", 2: "#0e2236", 3: "#c9a862",
+    0: "#102f31", 1: "#0d1f18", 2: "#123246", 3: "#c9a862",
     4: "#181022", 5: "#cf9040", 6: "#0c0618",
 }
 
