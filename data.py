@@ -5792,6 +5792,7 @@ CONSUMABLE_EFFECTS = {
     "plášť proti slnku": _c("regen_bonus", 1, "+1 k regenerácii (ochrana pred páľavou)", 3),
     # — bojové / útočné spotrebné (+N k hodom dnes) —
     "ohnivé šípy":      _c("hod_bonus_dnes", 2, "+2 k hodom dnes (ohnivé šípy)", 3),
+    "jed na šípy":      _c("hod_bonus_dnes", 2, "+2 k hodom dnes (otrávené šípy)", 3),
     "svätá voda":       _c("hod_bonus_dnes", 2, "+2 k hodom dnes proti tieňom", 3),
     "výbušná fľaša":    _c("hod_bonus_dnes", 3, "+3 k hodu dnes (výbuch)", 1),
     "vrhacie nože":     _c("hod_bonus_dnes", 1, "+1 k hodom dnes (vrhacie nože)", 5),
@@ -5865,24 +5866,33 @@ def normalize_item(raw):
     nazov = raw.get("nazov", "?")
     pouzitie = raw.get("pouzitie")
     pocet = raw.get("pocet_pouziti")
-    # „na deň" bonusy NIE sú trvalé — je to jednorazový lektvar: efekt platí len dnes,
-    # potom sa minie (inak by +Sila zostávalo navždy). Prevedieme mody na použiteľný efekt.
-    daily = pouzitie is None and any(h in (vyh + " " + nev).lower() for h in ("na deň", "na den"))
-    if daily and mods:
-        use_mody = [{"atribut": m["atribut"], "hodnota": m["hodnota"]} for m in mods]
-        popis = "na dnešný deň: " + ", ".join(
-            f"{'+' if m['hodnota'] >= 0 else '−'}{abs(m['hodnota'])} {KEY_TO_ATTR_NAME.get(m['atribut'], m['atribut'])}"
-            for m in use_mody)
-        pouzitie = {"typ": "denny_atribut", "mody": use_mody, "popis": popis}
-        if pocet in (None, 0):
-            pocet = 1
-        mods = []                              # žiadny trvalý bonus
-    if pouzitie is None:                       # doplň efekt spotrebného predmetu podľa názvu
+    trvaly_item = raw.get("trvaly", any(k in nazov.lower() for k in LEGENDARY_ACTIVE))
+    explicit_pouzitie = pouzitie is not None
+    # 1) menný register spotrebných efektov (jedlo, lektvary, otrávené šípy…)
+    if pouzitie is None:
         auto_p, auto_n = _consumable_for(nazov)
         if auto_p is not None:
             pouzitie = auto_p
             if pocet in (None, 0):
                 pocet = auto_n
+    # 2) jednorazové / „na deň / na večer / na jeden hod" atribútové lektvary → bonus len
+    #    na dnešný deň, potom sa predmet minie (inak by +atribút zostával navždy).
+    if pouzitie is None and mods:
+        low = (vyh + " " + nev).lower()
+        docasne = bool(raw.get("jednorazovy")) or any(
+            h in low for h in ("na deň", "na den", "na večer", "na vecer", "na jeden hod"))
+        if docasne:
+            use_mody = [{"atribut": m["atribut"], "hodnota": m["hodnota"]} for m in mods]
+            popis = "na dnešný deň: " + ", ".join(
+                f"{'+' if m['hodnota'] >= 0 else '−'}{abs(m['hodnota'])} {KEY_TO_ATTR_NAME.get(m['atribut'], m['atribut'])}"
+                for m in use_mody)
+            pouzitie = {"typ": "denny_atribut", "mody": use_mody, "popis": popis}
+            if pocet in (None, 0):
+                pocet = 1
+    # 3) spotrebný predmet nemá trvalý pasívny bonus (výnimka: legendárne s trvalým efektom
+    #    a predmety s vlastným explicitným `pouzitie` v dátach)
+    if pouzitie and not explicit_pouzitie and not trvaly_item:
+        mods = []
     return {
         "nazov": nazov,
         "ikona": raw.get("ikona", ""),
@@ -5894,7 +5904,7 @@ def normalize_item(raw):
         "cena": raw.get("cena", 0),
         "pouzitie": pouzitie,
         "pocet_pouziti": pocet,
-        "trvaly": raw.get("trvaly", any(k in nazov.lower() for k in LEGENDARY_ACTIVE)),
+        "trvaly": trvaly_item,
     }
 
 
