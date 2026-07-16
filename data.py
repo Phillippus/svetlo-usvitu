@@ -5741,6 +5741,7 @@ ATTR_NAME_TO_KEY = {
     "Sila": "sila", "Obratnosť": "obratnost", "Výdrž": "vydrz", "Intelekt": "intelekt",
     "Múdrosť": "mudrost", "Mágia": "magia", "Šťastie": "stastie", "Charizma": "charizma",
 }
+KEY_TO_ATTR_NAME = {v: k for k, v in ATTR_NAME_TO_KEY.items()}
 _MOD_RE = re.compile(r"([+\-−])\s*(\d+)\s*(" + "|".join(ATTR_NAME_TO_KEY) + r")")
 # náznaky, že bonus platí len v boji (inak „stále")
 _BOJ_HINTS = ("k útoku", "k streľbe", "k boju", "v boji", "zblízka", "úder",
@@ -5864,6 +5865,18 @@ def normalize_item(raw):
     nazov = raw.get("nazov", "?")
     pouzitie = raw.get("pouzitie")
     pocet = raw.get("pocet_pouziti")
+    # „na deň" bonusy NIE sú trvalé — je to jednorazový lektvar: efekt platí len dnes,
+    # potom sa minie (inak by +Sila zostávalo navždy). Prevedieme mody na použiteľný efekt.
+    daily = pouzitie is None and any(h in (vyh + " " + nev).lower() for h in ("na deň", "na den"))
+    if daily and mods:
+        use_mody = [{"atribut": m["atribut"], "hodnota": m["hodnota"]} for m in mods]
+        popis = "na dnešný deň: " + ", ".join(
+            f"{'+' if m['hodnota'] >= 0 else '−'}{abs(m['hodnota'])} {KEY_TO_ATTR_NAME.get(m['atribut'], m['atribut'])}"
+            for m in use_mody)
+        pouzitie = {"typ": "denny_atribut", "mody": use_mody, "popis": popis}
+        if pocet in (None, 0):
+            pocet = 1
+        mods = []                              # žiadny trvalý bonus
     if pouzitie is None:                       # doplň efekt spotrebného predmetu podľa názvu
         auto_p, auto_n = _consumable_for(nazov)
         if auto_p is not None:

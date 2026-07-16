@@ -1633,6 +1633,13 @@ def use_consumable(cid, item, target=None):
         ss["temp_bonusy"].setdefault(dnes, []).append(
             {"postava": cid, "atribut": "all", "hodnota": val, "zdroj": item["nazov"]})
         msg = f"✨ {short_name(cid)}: +{val} ku všetkým hodom dnes."
+    elif typ == "denny_atribut":               # lektvar „na deň" — bonus na konkrétne atribúty, len dnes
+        sel = ss.get("sel_date")
+        dnes = sel.isoformat() if hasattr(sel, "isoformat") else datetime.date.today().isoformat()
+        for m in p.get("mody", []):
+            ss["temp_bonusy"].setdefault(dnes, []).append(
+                {"postava": cid, "atribut": m["atribut"], "hodnota": m["hodnota"], "zdroj": item["nazov"]})
+        msg = f"🧪 {short_name(cid)} vypil {item['nazov']} — {p.get('popis', 'bonus na dnes')}."
     elif typ == "auto_uspech":
         sel = ss.get("sel_date")
         dnes = sel.isoformat() if hasattr(sel, "isoformat") else datetime.date.today().isoformat()
