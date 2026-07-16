@@ -112,34 +112,52 @@ _SCENES = {
              + "<rect y='226' width='1200' height='80' fill='#aadcbc' opacity='0.12'/>"
              + _pines(300, 9, 70, 150, "#174433", 0.6)
              + _pines(400, 7, 95, 210, "#0e2c1e", 0.92)),
-    2: _wrap(_sky("r", "#5b9fd4", "#bcdcea")
-             + "<circle cx='945' cy='90' r='78' fill='#fff0b0' opacity='0.28'/>"
-             + "<circle cx='945' cy='90' r='44' fill='#fff2c0'/>"
-             + "<g fill='#eaf4fb' opacity='0.85'>"
-               "<ellipse cx='230' cy='70' rx='52' ry='16'/><ellipse cx='300' cy='78' rx='40' ry='13'/>"
-               "<ellipse cx='620' cy='55' rx='44' ry='13'/><ellipse cx='780' cy='120' rx='36' ry='11'/></g>"
-             + "<g fill='none' stroke='#3a556a' stroke-width='2' opacity='0.55'>"
-               "<path d='M410,96 q7,-6 14,0 q7,-6 14,0'/><path d='M472,82 q6,-5 12,0 q6,-5 12,0'/></g>"
-             + "<path d='M0,205 Q220,182 460,200 Q720,182 980,200 Q1100,192 1200,203 L1200,250 L0,250 Z' fill='#8fb4c9' opacity='0.65'/>"
+    2: _wrap(_sky("r", "#5f9fd0", "#c3dced")
+             + "<circle cx='975' cy='84' r='72' fill='#fff0b0' opacity='0.26'/>"
+             + "<circle cx='975' cy='84' r='42' fill='#fff2c0'/>"
+             + "<g fill='#eef5fb' opacity='0.85'>"
+               "<ellipse cx='230' cy='66' rx='54' ry='16'/><ellipse cx='300' cy='74' rx='40' ry='12'/>"
+               "<ellipse cx='560' cy='52' rx='42' ry='12'/><ellipse cx='700' cy='150' rx='38' ry='11'/></g>"
+             + "<g fill='none' stroke='#3a556a' stroke-width='2' opacity='0.5'>"
+               "<path d='M360,120 q7,-6 14,0 q7,-6 14,0'/><path d='M402,108 q6,-5 12,0 q6,-5 12,0'/>"
+               "<path d='M444,124 q6,-5 12,0 q6,-5 12,0'/><path d='M330,140 q6,-5 12,0 q6,-5 12,0'/></g>"
+             + "<path d='M0,220 L120,150 L210,185 L330,116 L440,180 L560,126 L690,172 L820,112 "
+               "L960,178 L1090,138 L1200,190 L1200,235 L0,235 Z' fill='#8ea9c4' opacity='0.72'/>"
+             + "<g fill='#eef4fa' opacity='0.9'><path d='M330,116 L316,142 L344,142 Z'/>"
+               "<path d='M560,126 L547,150 L573,150 Z'/><path d='M820,112 L806,140 L834,140 Z'/>"
+               "<path d='M1090,138 L1078,158 L1102,158 Z'/></g>"
+             + "<path d='M0,240 L160,182 L300,218 L470,168 L640,208 L800,162 L980,212 L1130,178 "
+               "L1200,214 L1200,255 L0,255 Z' fill='#5f7f93'/>"
+             + "<ellipse cx='600' cy='250' rx='540' ry='18' fill='#9cc4dd'/>"
+             + "<ellipse cx='600' cy='247' rx='420' ry='7' fill='#d6ecf6' opacity='0.55'/>"
              + "<defs><linearGradient id='w2' x1='0' y1='0' x2='0' y2='1'>"
-               "<stop offset='0' stop-color='#bfe1f0'/><stop offset='1' stop-color='#5c93bb'/></linearGradient></defs>"
-             + "<path d='M0,400 L0,232 Q300,212 600,240 Q900,212 1200,232 L1200,400 Z' fill='#5b9070'/>"
-             + "<path d='M0,400 L0,300 Q320,282 640,312 Q920,288 1200,306 L1200,400 Z' fill='#4c815f' opacity='0.5'/>"
-             + "<path d='M600,238 C548,286 372,330 0,356 L0,400 L1200,400 L1200,356 C828,330 652,286 600,238 Z' fill='url(#w2)'/>"
-             + "<ellipse cx='945' cy='372' rx='46' ry='9' fill='#fff2c0' opacity='0.28'/>"
-             + "<ellipse cx='945' cy='388' rx='30' ry='6' fill='#fff2c0' opacity='0.20'/>"
-             + "<g fill='#eaf6fc' opacity='0.5'>"
-               "<ellipse cx='250' cy='372' rx='55' ry='3'/><ellipse cx='560' cy='386' rx='82' ry='3.5'/>"
-               "<ellipse cx='430' cy='360' rx='40' ry='2.5'/><ellipse cx='760' cy='378' rx='60' ry='3'/>"
-               "<ellipse cx='1050' cy='366' rx='45' ry='2.5'/><ellipse cx='150' cy='386' rx='48' ry='3'/></g>"
-             + "<path d='M556,286 Q600,262 644,286' fill='none' stroke='#b8a586' stroke-width='6'/>"
-             + "<rect x='552' y='274' width='96' height='8' rx='2' fill='#c6b493'/>"
-             + "<rect x='554' y='266' width='5' height='9' fill='#c6b493'/><rect x='641' y='266' width='5' height='9' fill='#c6b493'/>"
-             + "<g fill='#2c3a24'><rect x='147' y='268' width='6' height='18'/><rect x='327' y='288' width='5' height='14'/>"
-               "<rect x='1047' y='268' width='6' height='18'/><rect x='877' y='288' width='5' height='14'/></g>"
-             + "<g fill='#39694f'>"
-               "<circle cx='150' cy='248' r='26'/><circle cx='330' cy='270' r='19'/>"
-               "<circle cx='1050' cy='248' r='26'/><circle cx='880' cy='270' r='19'/></g>"),
+               "<stop offset='0' stop-color='#a9d4e6'/><stop offset='1' stop-color='#1d3c44'/></linearGradient></defs>"
+             + "<path d='M0,400 L0,256 Q300,248 600,260 Q900,248 1200,256 L1200,400 Z' fill='#5c9070'/>"
+             + "<path d='M0,400 L0,312 Q300,296 600,322 Q900,298 1200,314 L1200,400 Z' fill='#4c815f' opacity='0.55'/>"
+             + "<path d='M566,258 C540,300 500,330 430,360 C380,382 350,392 300,400 L900,400 "
+               "C850,392 820,382 770,360 C700,330 660,300 634,258 Z' fill='url(#w2)'/>"
+             + "<path d='M600,262 C584,300 556,332 512,362 L536,372 Q600,338 664,372 L688,362 "
+               "C644,332 616,300 600,262 Z' fill='#cfe8f4' opacity='0.28'/>"
+             + "<g fill='#eaf6fc' opacity='0.5'><ellipse cx='470' cy='372' rx='34' ry='2.5'/>"
+               "<ellipse cx='600' cy='388' rx='60' ry='3'/><ellipse cx='720' cy='370' rx='34' ry='2.5'/>"
+               "<ellipse cx='560' cy='352' rx='22' ry='2'/></g>"
+             + "<g fill='#5c4a34'><rect x='138' y='276' width='4' height='14'/><rect x='176' y='272' width='4' height='16'/>"
+               "<rect x='214' y='278' width='4' height='13'/><rect x='158' y='283' width='4' height='12'/>"
+               "<rect x='232' y='274' width='4' height='15'/></g>"
+             + "<g fill='#8f9d64'><ellipse cx='140' cy='272' rx='19' ry='15'/><ellipse cx='178' cy='266' rx='23' ry='17'/>"
+               "<ellipse cx='216' cy='274' rx='18' ry='14'/><ellipse cx='160' cy='281' rx='17' ry='13'/>"
+               "<ellipse cx='234' cy='270' rx='16' ry='13'/></g>"
+             + "<g fill='#aab884' opacity='0.55'><ellipse cx='173' cy='261' rx='10' ry='7'/><ellipse cx='212' cy='270' rx='8' ry='6'/></g>"
+             + "<g fill='#2c3a24'><rect x='1010' y='276' width='6' height='16'/><rect x='930' y='288' width='5' height='13'/></g>"
+             + "<g fill='#39694f'><circle cx='1013' cy='258' r='24'/><circle cx='933' cy='274' r='18'/></g>"
+             + "<g fill='#8f8069'><rect x='512' y='324' width='16' height='40'/><rect x='592' y='324' width='16' height='42'/>"
+               "<rect x='672' y='324' width='16' height='40'/></g>"
+             + "<g fill='none' stroke='#95856c' stroke-width='6'><path d='M492,324 Q520,306 548,324'/>"
+               "<path d='M556,324 Q600,304 644,324'/><path d='M652,324 Q680,306 708,324'/></g>"
+             + "<rect x='488' y='310' width='224' height='13' rx='2' fill='#ab9b82'/>"
+             + "<g fill='#c6b493'><rect x='492' y='303' width='6' height='9'/><rect x='545' y='303' width='6' height='9'/>"
+               "<rect x='598' y='303' width='6' height='9'/><rect x='651' y='303' width='6' height='9'/>"
+               "<rect x='704' y='303' width='6' height='9'/></g>"),
     3: _wrap(_sky("b", "#33cfe6", "#1596b0")
              + "<circle cx='930' cy='105' r='60' fill='#fff4a8'/>"
              + "<circle cx='930' cy='105' r='100' fill='#fff29a' opacity='0.28'/>"
@@ -217,7 +235,7 @@ CHAPTER_BG = {
 # Sila prekryvu nad scénou (kvôli čitateľnosti). Veselé kapitoly (pláž, púšť) = jemnejší
 # → jasnejšie farby; VI = tmavší s červeným nádychom → zlovestnejšie.
 _OVERLAY = {
-    2: "rgba(12,22,34,0.10) 0%, rgba(12,22,34,0.32) 45%, rgba(12,22,34,0.56) 72%",
+    2: "rgba(16,34,38,0.10) 0%, rgba(16,34,38,0.30) 45%, rgba(16,34,38,0.54) 72%",
     3: "rgba(40,30,12,0.12) 0%, rgba(40,30,12,0.34) 45%, rgba(40,30,12,0.56) 72%",
     5: "rgba(45,28,8,0.12) 0%, rgba(45,28,8,0.34) 45%, rgba(45,28,8,0.56) 72%",
     6: "rgba(45,15,70,0.22) 0%, rgba(30,10,50,0.46) 42%, rgba(18,8,32,0.7) 72%",
@@ -226,7 +244,7 @@ _OVERLAY_DEFAULT = "rgba(10,12,18,0.14) 0%, rgba(10,12,18,0.38) 45%, rgba(10,12,
 
 # Ladiaca farba kapitoly — vyplni plochu pod scenou (namiesto ciernej) a zjednoti vzhlad.
 _BASE = {
-    0: "#102f31", 1: "#0d1f18", 2: "#123246", 3: "#c9a862",
+    0: "#102f31", 1: "#0d1f18", 2: "#1d3c44", 3: "#c9a862",
     4: "#181022", 5: "#cf9040", 6: "#0c0618",
 }
 
