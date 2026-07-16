@@ -548,7 +548,7 @@ def apply_life_loss(ds, dec, opt, res, attempt):
 # Kvalita brnenia → (prah hodu, počet použití). Lepšia zbroj = nižší prah + viac použití.
 # Kľúč = podreťazec názvu. Štíty osobitne (najslabšie). Neznáme brnenie → generický tier.
 _ARMOR_QUALITY = [
-    ("prvého strážcu", 10, 7),      # legendárna — najlepšia
+    ("prvého strážcu", 7, 7),       # legendárna — najlepšia (najnižší prah)
     ("zlat",           11, 5),      # zlatá zbroj
     ("rytiersk",       12, 4),
     ("náčelník",       12, 4), ("nacelnik", 12, 4),
