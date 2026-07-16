@@ -278,6 +278,17 @@ def inject_css(accent, bg=None):
       .su-bar-bg {{ background:#2b3242; border-radius:6px; height:14px; width:100%; overflow:hidden; }}
       .su-bar-fill {{ height:14px; border-radius:6px; }}
       .su-stat {{ font-size:0.8rem; margin:1px 0; white-space:nowrap; }}
+      /* inventárna bublina okolo predmetu */
+      .su-inv {{
+          border: 1px solid {accent}44; border-radius: 9px;
+          padding: 0.45em 0.7em; margin: 0.1em 0 0.3em; background: #171c28;
+      }}
+      /* kompaktné ikonové tlačidlá (✖ vyhodiť, ↪ presunúť) — nie veľké boxy */
+      [class*="st-key-rm_"] button,
+      [class*="st-key-mvbtn_"] button {{
+          min-height: 2.1em; padding: 0.1em 0.2em;
+          text-align: center; line-height: 1.1rem; font-size: 0.95rem;
+      }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -1776,14 +1787,17 @@ def render_char_card(cid, entry, accent):
             ms = mods_summary(item) if isinstance(item, dict) else ""
             pouzitie = item.get("pouzitie") if isinstance(item, dict) else None
             pocet = item.get("pocet_pouziti") if isinstance(item, dict) else None
-            ic = st.columns([5, 1])
+            ic = st.columns([5, 1], vertical_alignment="center")
             pasivny = bool(pouzitie) and pouzitie.get("typ") == "regen_bonus"
-            eff = f"  \n<span style='font-size:0.74rem;color:#9aa'>{ms}</span>" if ms else ""
+            riadky = [f"<b>{name}</b>"]
+            if ms:
+                riadky.append(f"<span style='font-size:0.74rem;color:#9aa'>{ms}</span>")
             if pouzitie:
                 znak = "🍖 pasívne (pri nocľahu)" if pasivny else "✨"
-                eff += (f"  \n<span style='font-size:0.74rem;color:#7fb069'>{znak} {pouzitie.get('popis','')}"
-                        f" · použití: {pocet}</span>")
-            ic[0].markdown(f"- {name}{eff}", unsafe_allow_html=True)
+                riadky.append(f"<span style='font-size:0.74rem;color:#7fb069'>{znak} "
+                              f"{pouzitie.get('popis','')} · použití: {pocet}</span>")
+            ic[0].markdown("<div class='su-inv'>" + "<br>".join(riadky) + "</div>",
+                           unsafe_allow_html=True)
             if ic[1].button("✖", key=f"rm_{cid}_{i}", help="Vyhodiť predmet"):
                 inv.pop(i); st.rerun()
             # Štít Prvého strážcu (plna_ochrana) sa NEpoužíva tlačidlom — je to reaktívna záchrana,
@@ -1810,7 +1824,7 @@ def render_char_card(cid, entry, accent):
 
         # Presun predmetu k inej (vhodnej) postave — uvoľní miesto
         if inv:
-            mc = st.columns([4, 4, 2])
+            mc = st.columns([4, 4, 2], vertical_alignment="center")
             j = mc[0].selectbox("Presunúť", list(range(len(inv))),
                                 format_func=lambda k: (inv[k]["nazov"] if isinstance(inv[k], dict)
                                                        else str(inv[k]))[:16],
